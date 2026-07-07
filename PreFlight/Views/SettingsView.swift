@@ -38,17 +38,40 @@ private struct AboutSettingsPane: View {
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
+    private var websiteURL: URL? {
+        URL(string: "https://preflight.info")
+    }
 
     private var contactURL: URL? {
-        URL(string: "mailto:contact.silencedev@gmail.com")
+        URL(string: "mailto:noah_mcclung@icloud.com")
+    }
+    private var privacyURL: URL? {
+        URL(string: "https://preflight.info/privacy")
+    }
+    private var termsURL: URL? {
+        URL(string: "https://preflight.info/terms")
     }
 
     var body: some View {
         Form {
             LabeledContent("Version", value: appVersion)
-
             if let contactURL {
                 Link("Contact Support", destination: contactURL)
+            }
+            if let websiteURL {
+                Link(destination: websiteURL) {
+                    Label("Website", systemImage: "globe")
+                }
+            }
+            if let privacyURL {
+                Link(destination: privacyURL) {
+                    Label("Privacy", systemImage: "hand.raised.fill")
+                }
+            }
+            if let termsURL {
+                Link(destination: termsURL) {
+                    Label("Terms and Conditions", systemImage: "doc.text")
+                }
             }
         }
         .formStyle(.grouped)

@@ -10,6 +10,7 @@ struct DeveloperCompanionApp: App {
                 .environment(appState)
                 .preferredColorScheme(appState.settings.appearance.colorScheme)
         }
+        .defaultSize(width: 700, height: 600)
         #if os(macOS)
         Settings {
             SettingsView()
