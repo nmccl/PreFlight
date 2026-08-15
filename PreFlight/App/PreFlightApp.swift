@@ -1,7 +1,8 @@
 import SwiftUI
+import StoreKit
 
 @main
-struct DeveloperCompanionApp: App {
+struct PreFlightApp: App {
     @State private var appState = AppState()
 
     var body: some Scene {
@@ -9,8 +10,16 @@ struct DeveloperCompanionApp: App {
             RootView()
                 .environment(appState)
                 .preferredColorScheme(appState.settings.appearance.colorScheme)
+                .task {
+                    // Verify entitlements + load product price before any UI renders.
+                    await appState.purchases.load()
+                    // Listen for background transactions (refunds, cross-device purchases)
+                    // for the app's lifetime.
+                    for await result in Transaction.updates {
+                        await appState.purchases.handleTransaction(result)
+                    }
+                }
         }
-        .defaultSize(width: 700, height: 600)
         #if os(macOS)
         Settings {
             SettingsView()

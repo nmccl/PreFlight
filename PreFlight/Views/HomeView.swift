@@ -1,8 +1,5 @@
 import SwiftUI
 import UniformTypeIdentifiers
-#if canImport(AppKit)
-import AppKit
-#endif
 
 /// Project selection: open a new project or jump back into a recent one.
 struct HomeView: View {
@@ -192,39 +189,5 @@ private struct ReadinessBadge: View {
         case ..<85: .orange
         default: .green
         }
-    }
-}
-
-/// Renders stored icon PNG data, falling back to a placeholder glyph.
-private struct ProjectIconView: View {
-    let imageData: Data?
-
-    var body: some View {
-        if let imageData, let image = platformImage(from: imageData) {
-            image
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .clipShape(.rect(cornerRadius: 10))
-        } else {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.quaternary)
-                .overlay {
-                    Image(systemName: "app.dashed")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                }
-        }
-    }
-
-    private func platformImage(from data: Data) -> Image? {
-        #if canImport(AppKit)
-        guard let nsImage = NSImage(data: data) else { return nil }
-        return Image(nsImage: nsImage)
-        #elseif canImport(UIKit)
-        guard let uiImage = UIImage(data: data) else { return nil }
-        return Image(uiImage: uiImage)
-        #else
-        return nil
-        #endif
     }
 }

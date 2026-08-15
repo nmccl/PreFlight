@@ -1,7 +1,8 @@
 import Foundation
 
 /// The complete result of an analysis run, ready for the Results screen.
-struct Report: Identifiable, Sendable {
+/// Codable so the latest report per project can be persisted and reopened.
+struct Report: Identifiable, Codable, Sendable {
     let id: UUID
     let projectName: String
     let bundleIdentifier: String?
@@ -41,7 +42,16 @@ extension Report {
     var suggestionCount: Int { count(of: .suggestion) }
 
     var estimatedFixTime: Duration {
-        .seconds(allFindings.reduce(0) { $0 + $1.severity.estimatedFixMinutes } * 60)
+        .seconds(allFindings.reduce(0) { $0 + $1.effectiveFixMinutes } * 60)
+    }
+
+    /// How many automated checks actually ran, across all categories.
+    var totalChecksPerformed: Int {
+        results.reduce(0) { $0 + $1.checksPerformed }
+    }
+
+    var skippedResults: [AnalysisResult] {
+        results.filter(\.wasSkipped)
     }
 
     private func count(of severity: Severity) -> Int {
@@ -51,7 +61,7 @@ extension Report {
 
 /// The summary shown at the top of the report, written either by Apple
 /// Intelligence or by the deterministic fallback template.
-struct ReportSummaryText: Sendable {
+struct ReportSummaryText: Codable, Sendable {
     let overview: String
     let topPriorities: [String]
     let isAIGenerated: Bool

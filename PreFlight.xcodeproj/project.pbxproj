@@ -6,8 +6,24 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FEC43883300338140044F9C4 /* PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = FEC4385F300338140044F9C4 /* PLAN.md */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FEC90371302CDC910009D21A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = PreFlight;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		FEA1AE0A2FFCB26F00AAFE2A /* PreFlight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PreFlight.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FEC4385F300338140044F9C4 /* PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PLAN.md; sourceTree = "<group>"; };
+		FEC9036D302CDC910009D21A /* PreFlightTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PreFlightTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +32,20 @@
 			path = PreFlight;
 			sourceTree = "<group>";
 		};
+		FEC9036E302CDC910009D21A /* PreFlightTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = PreFlightTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		000000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		FEC9036A302CDC910009D21A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -32,6 +58,9 @@
 			children = (
 				000000000000000000000010 /* PreFlight */,
 				FEA1AE0A2FFCB26F00AAFE2A /* PreFlight.app */,
+				FEC4385F300338140044F9C4 /* PLAN.md */,
+				FEC9036D302CDC910009D21A /* PreFlightTests.xctest */,
+				FEC9036E302CDC910009D21A /* PreFlightTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -56,6 +85,27 @@
 			productReference = FEA1AE0A2FFCB26F00AAFE2A /* PreFlight.app */;
 			productType = "com.apple.product-type.application";
 		};
+		FEC9036C302CDC910009D21A /* PreFlightTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FEC90375302CDC910009D21A /* Build configuration list for PBXNativeTarget "PreFlightTests" */;
+			buildPhases = (
+				FEC90369302CDC910009D21A /* Sources */,
+				FEC9036A302CDC910009D21A /* Frameworks */,
+				FEC9036B302CDC910009D21A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FEC90372302CDC910009D21A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FEC9036E302CDC910009D21A /* PreFlightTests */,
+			);
+			name = PreFlightTests;
+			productName = PreFlightTests;
+			productReference = FEC9036D302CDC910009D21A /* PreFlightTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -63,11 +113,15 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2630;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					000000000000000100000000 = {
 						CreatedOnToolsVersion = 26.3;
+					};
+					FEC9036C302CDC910009D21A = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 000000000000000100000000;
 					};
 				};
 			};
@@ -86,12 +140,19 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* PreFlight */,
+				FEC9036C302CDC910009D21A /* PreFlightTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		000000000000000140000000 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				FEC43883300338140044F9C4 /* PLAN.md in Resources */,
+			);
+		};
+		FEC9036B302CDC910009D21A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -104,7 +165,20 @@
 			files = (
 			);
 		};
+		FEC90369302CDC910009D21A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FEC90372302CDC910009D21A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* PreFlight */;
+			targetProxy = FEC90371302CDC910009D21A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000011000000 /* Debug configuration for PBXProject "PreFlight" */ = {
@@ -242,12 +316,24 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "PreFlight" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6B25H498BN;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PreFlight;
@@ -283,12 +369,24 @@
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "PreFlight" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6B25H498BN;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = PreFlight;
@@ -321,6 +419,52 @@
 			};
 			name = Release;
 		};
+		FEC90373302CDC910009D21A /* Debug configuration for PBXNativeTarget "PreFlightTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6B25H498BN;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				NEW_SETTING = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.noahmcclung.PreFlightTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PreFlight.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PreFlight";
+			};
+			name = Debug;
+		};
+		FEC90374302CDC910009D21A /* Release configuration for PBXNativeTarget "PreFlightTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6B25H498BN;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				NEW_SETTING = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.noahmcclung.PreFlightTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PreFlight.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PreFlight";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -337,6 +481,14 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "PreFlight" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "PreFlight" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		FEC90375302CDC910009D21A /* Build configuration list for PBXNativeTarget "PreFlightTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FEC90373302CDC910009D21A /* Debug configuration for PBXNativeTarget "PreFlightTests" */,
+				FEC90374302CDC910009D21A /* Release configuration for PBXNativeTarget "PreFlightTests" */,
 			);
 			defaultConfigurationName = Release;
 		};

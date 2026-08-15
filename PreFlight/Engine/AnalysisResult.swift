@@ -1,7 +1,8 @@
 import Foundation
 
 /// The outcome of one analyzer's run: its findings and a 0–100 category score.
-struct AnalysisResult: Sendable {
+/// Codable so reports containing it can be persisted between launches.
+struct AnalysisResult: Codable, Sendable {
     let category: AnalysisCategory
     let findings: [Finding]
     let score: Int

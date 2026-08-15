@@ -42,7 +42,7 @@ struct ProjectService: Sendable {
         )
     }
 
-    func makeContext(for project: Project) throws -> AnalysisContext {
+    func makeContext(for project: Project, credentials: ASCCredentials?) throws -> AnalysisContext {
         let parsed = try parser.parse(projectFileURL: project.projectFileURL)
 
         var sources: [URL] = []
@@ -68,7 +68,8 @@ struct ProjectService: Sendable {
             targets: parsed.targets,
             infoPlists: infoPlists,
             sourceFileURLs: sources,
-            resourceFileURLs: resources
+            resourceFileURLs: resources,
+            ascCredentials: credentials
         )
     }
 
@@ -126,6 +127,10 @@ struct ProjectService: Sendable {
     }
 
     private func appIconData(in directory: URL) -> Data? {
+        // Only extract from classic .appiconset — these contain the final
+        // rendered PNG. Icon Composer .icon bundles only contain layer files
+        // (not the composed output), so extracting from them produces a broken
+        // partial image; fall back to the system generic app icon instead.
         let iconFiles = projectFiles(in: directory).filter { url in
             url.path.contains("AppIcon.appiconset") && url.pathExtension.lowercased() == "png"
         }
