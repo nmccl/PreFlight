@@ -9,6 +9,11 @@ struct RecentProject: Codable, Identifiable, Sendable {
     var bundleIdentifier: String?
     var projectPath: String
     var bookmarkData: Data
+    /// Security-scoped bookmark for the project's parent directory. Created
+    /// during the fileImporter callback (while NSOpenPanel's powerbox grant
+    /// covers the directory), then reused for every subsequent open so the
+    /// analyzer can enumerate source and resource files.
+    var parentBookmarkData: Data?
     var lastOpened: Date
     var lastScore: Int?
     var appIconImageData: Data?
@@ -33,7 +38,7 @@ final class RecentProjectsService {
 
     /// Records an opened project. Must be called while security-scoped access
     /// to the project URL is active, or bookmark creation fails.
-    func noteOpened(_ project: Project) {
+    func noteOpened(_ project: Project, parentBookmarkData: Data? = nil) {
         guard let bookmarkData = try? Self.bookmarkData(for: project.projectFileURL) else {
             return
         }
@@ -44,6 +49,7 @@ final class RecentProjectsService {
             bundleIdentifier: project.bundleIdentifier,
             projectPath: project.projectFileURL.path,
             bookmarkData: bookmarkData,
+            parentBookmarkData: parentBookmarkData ?? existing?.parentBookmarkData,
             lastOpened: .now,
             lastScore: existing?.lastScore,
             appIconImageData: project.appIconImageData ?? existing?.appIconImageData
@@ -94,6 +100,21 @@ final class RecentProjectsService {
             save()
         }
         return url
+    }
+
+    /// Creates a security-scoped bookmark for the directory that contains the
+    /// project file. Must be called during a fileImporter callback while the
+    /// open panel's powerbox grant for the parent directory is still active.
+    static func makeParentBookmarkData(for projectFileURL: URL) -> Data? {
+        #if os(macOS)
+        try? projectFileURL.deletingLastPathComponent().bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        #else
+        nil
+        #endif
     }
 
     private static func bookmarkData(for url: URL) throws -> Data {

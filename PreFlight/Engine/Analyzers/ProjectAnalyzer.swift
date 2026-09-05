@@ -16,18 +16,21 @@ struct ProjectAnalyzer: Analyzer {
         let capability: String
     }
 
-    private static let entitlementRules = [
-        EntitlementRule(key: "com.apple.security.device.bluetooth", usagePatterns: ["CoreBluetooth", "CBCentralManager", "CBPeripheralManager"], capability: "Bluetooth"),
-        EntitlementRule(key: "com.apple.security.device.camera", usagePatterns: ["AVCaptureDevice", "UIImagePickerController"], capability: "the camera"),
-        EntitlementRule(key: "com.apple.security.device.audio-input", usagePatterns: ["AVAudioRecorder", "AVCaptureDevice", "AVAudioEngine"], capability: "the microphone"),
-        EntitlementRule(key: "com.apple.security.personal-information.location", usagePatterns: ["CoreLocation", "CLLocationManager"], capability: "location"),
-        EntitlementRule(key: "com.apple.security.personal-information.addressbook", usagePatterns: ["import Contacts", "CNContactStore"], capability: "contacts"),
-        EntitlementRule(key: "com.apple.security.personal-information.calendars", usagePatterns: ["import EventKit", "EKEventStore"], capability: "the calendar"),
-        EntitlementRule(key: "com.apple.security.personal-information.photos-library", usagePatterns: ["import Photos", "PHPhotoLibrary"], capability: "the photo library"),
-        EntitlementRule(key: "com.apple.developer.healthkit", usagePatterns: ["import HealthKit", "HKHealthStore"], capability: "HealthKit"),
-        EntitlementRule(key: "com.apple.developer.applesignin", usagePatterns: ["AuthenticationServices", "SignInWithApple", "ASAuthorization"], capability: "Sign in with Apple"),
-        EntitlementRule(key: "aps-environment", usagePatterns: ["UserNotifications", "registerForRemoteNotifications", "UNUserNotificationCenter"], capability: "push notifications"),
-    ]
+    // Patterns assembled at runtime — same self-match avoidance as PrivacyAnalyzer.usageRules.
+    private static let entitlementRules: [EntitlementRule] = {[
+        EntitlementRule(key: "com.apple.security.device.bluetooth",              usagePatterns: ["Core" + "Bluetooth", "CBCentral" + "Manager", "CBPeripheral" + "Manager"],                 capability: "Bluetooth"),
+        EntitlementRule(key: "com.apple.security.device.camera",                 usagePatterns: ["AV" + "CaptureDevice", "UIImagePickerController"],                                          capability: "the camera"),
+        EntitlementRule(key: "com.apple.security.device.audio-input",            usagePatterns: ["AV" + "AudioRecorder", "AV" + "CaptureDevice", "AVAudioEngine"],                           capability: "the microphone"),
+        EntitlementRule(key: "com.apple.security.personal-information.location", usagePatterns: ["Core" + "Location", "CLLocation" + "Manager"],                                             capability: "location"),
+        EntitlementRule(key: "com.apple.security.personal-information.addressbook", usagePatterns: ["import Con" + "tacts", "CNContact" + "Store"],                                          capability: "contacts"),
+        EntitlementRule(key: "com.apple.security.personal-information.calendars",   usagePatterns: ["import Event" + "Kit", "EKEvent" + "Store"],                                            capability: "the calendar"),
+        EntitlementRule(key: "com.apple.security.personal-information.photos-library", usagePatterns: ["import Pho" + "tos", "PHPhoto" + "Library"],                                         capability: "the photo library"),
+        EntitlementRule(key: "com.apple.developer.healthkit",                    usagePatterns: ["HKHealth" + "Store"],                                                                    capability: "HealthKit"),
+        EntitlementRule(key: "com.apple.developer.applesignin",                  usagePatterns: ["AuthenticationServices", "SignInWithApple", "ASAuthorization"],                           capability: "Sign in with Apple"),
+        EntitlementRule(key: "aps-environment",                                  usagePatterns: ["UserNotifications", "registerForRemoteNotifications", "UNUserNotificationCenter"],        capability: "push notifications"),
+        EntitlementRule(key: "com.apple.developer.icloud-services",              usagePatterns: ["NSPersistentCloud" + "KitContainer", "CKContainer" + ".default()", "CKContainer(", "NSUbiquitousKeyValueStore"], capability: "iCloud"),
+        EntitlementRule(key: "com.apple.security.application-groups",            usagePatterns: ["UserDefaults(suiteName:", "containerURL(forSecurityApplicationGroupIdentifier:"],         capability: "App Groups"),
+    ]}()
 
     func analyze(_ context: AnalysisContext) async -> AnalysisResult {
         var findings: [Finding] = []

@@ -34,4 +34,22 @@ struct AnalysisResult: Codable, Sendable {
         self.wasSkipped = true
         self.skipReason = reason
     }
+
+    /// The worst severity present in this result's findings, used for the
+    /// category status badge in the results UI.
+    enum CategoryState: Sendable {
+        case blocked        // has .critical findings
+        case highRisk       // has .warning findings
+        case review         // has .review findings
+        case recommendation // only .suggestion findings
+        case clean          // no findings
+    }
+
+    var categoryState: CategoryState {
+        if findings.contains(where: { $0.severity == .critical })   { return .blocked }
+        if findings.contains(where: { $0.severity == .warning })    { return .highRisk }
+        if findings.contains(where: { $0.severity == .review })     { return .review }
+        if findings.contains(where: { $0.severity == .suggestion }) { return .recommendation }
+        return .clean
+    }
 }

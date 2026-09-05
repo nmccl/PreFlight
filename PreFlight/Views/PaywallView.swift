@@ -4,6 +4,7 @@ import SwiftUI
 /// Presents what the unlock adds; does not re-list the free tier.
 struct PaywallView: View {
     let purchases: PurchaseService
+    let source: PaywallSource
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -17,6 +18,12 @@ struct PaywallView: View {
         .frame(width: 380)
         .onChange(of: purchases.isPurchased) { _, isPurchased in
             if isPurchased { dismiss() }
+        }
+        .onAppear {
+            AnalyticsService.shared.paywallShown(source: source)
+        }
+        .onDisappear {
+            AnalyticsService.shared.paywallDismissed(source: source, converted: purchases.isPurchased)
         }
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -106,6 +113,17 @@ struct PaywallView: View {
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
             }
+
+            HStack(spacing: 20) {
+                if let url = URL(string: "https://preflight.info/privacy") {
+                    Link("Privacy Policy", destination: url)
+                }
+                if let url = URL(string: "https://preflight.info/terms") {
+                    Link("Terms of Use", destination: url)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .padding(24)
         .padding(.bottom, 8)

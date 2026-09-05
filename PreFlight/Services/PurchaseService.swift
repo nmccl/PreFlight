@@ -7,11 +7,20 @@ import Observation
 @Observable
 final class PurchaseService {
     static let productID = "com.noahmcclung.PreFlight.unlock"
+    private static let devOverrideKey = "preflight_dev_proUnlock"
 
-    private(set) var isPurchased = false
+    private var _isPurchased = false
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private var product: Product?
+
+    /// Dev-only: bypasses StoreKit so Pro features can be tested without a real transaction.
+    /// Persisted across launches via UserDefaults.
+    var devOverrideEnabled: Bool = UserDefaults.standard.bool(forKey: devOverrideKey) {
+        didSet { UserDefaults.standard.set(devOverrideEnabled, forKey: Self.devOverrideKey) }
+    }
+
+    var isPurchased: Bool { devOverrideEnabled || _isPurchased }
 
     /// The localized price string for display in the paywall.
     /// Falls back to "$12.99" before the product record loads (simulator / pre-submission).
@@ -31,22 +40,31 @@ final class PurchaseService {
 
     /// Initiates the StoreKit purchase flow.
     func purchase() async {
-        guard let product, !isLoading else { return }
+        guard !isLoading else { return }
+        guard let product else {
+            errorMessage = "Purchase information is still loading. Please try again in a moment."
+            return
+        }
         isLoading = true
         errorMessage = nil
+        AnalyticsService.shared.purchaseInitiated()
         defer { isLoading = false }
         do {
             let result = try await product.purchase()
             switch result {
             case .success(let verification):
                 await handleTransaction(verification)
-            case .pending, .userCancelled:
+                AnalyticsService.shared.purchaseCompleted()
+            case .userCancelled:
+                AnalyticsService.shared.purchaseFailed(userCancelled: true)
+            case .pending:
                 break
             @unknown default:
                 break
             }
         } catch {
             errorMessage = error.localizedDescription
+            AnalyticsService.shared.purchaseFailed(userCancelled: false)
         }
     }
 
@@ -59,6 +77,7 @@ final class PurchaseService {
         do {
             try await AppStore.sync()
             await verifyEntitlements()
+            AnalyticsService.shared.purchaseRestored(foundEntitlement: _isPurchased)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -69,7 +88,7 @@ final class PurchaseService {
     func handleTransaction(_ result: VerificationResult<Transaction>) async {
         guard case .verified(let tx) = result else { return }
         if tx.productID == Self.productID {
-            isPurchased = tx.revocationDate == nil
+            _isPurchased = tx.revocationDate == nil
         }
         await tx.finish()
     }
@@ -84,6 +103,6 @@ final class PurchaseService {
                 break
             }
         }
-        isPurchased = found
+        _isPurchased = found
     }
 }

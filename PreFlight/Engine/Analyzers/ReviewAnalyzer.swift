@@ -7,15 +7,15 @@ struct ReviewAnalyzer: Analyzer {
     let category = AnalysisCategory.review
 
     private static let paymentSteeringPatterns = [
-        "checkout.stripe.com", "paypal.me/", "buy on our website", "purchase on our site",
+        "checkout." + "stripe.com", "pay" + "pal.me/", "buy on" + " our website", "purchase on" + " our site",
     ]
 
     private static let attributionProviders = [
-        "openweathermap", "weatherapi.com", "WeatherKit",
+        "open" + "weathermap", "weather" + "api.com", "Weather" + "Kit",
     ]
 
-    private static let signUpPatterns = ["createUser", "createAccount", "signUp", "SignUpView"]
-    private static let deletionPatterns = ["deleteAccount", "delete account", "account deletion", "deleteUser"]
+    private static let signUpPatterns = ["create" + "User", "create" + "Account", "sign" + "Up", "SignUp" + "View"]
+    private static let deletionPatterns = ["delete" + "Account", "delete" + " account", "account" + " deletion", "delete" + "User"]
 
     func analyze(_ context: AnalysisContext) async -> AnalysisResult {
         let source = context.combinedSource()
@@ -25,7 +25,7 @@ struct ReviewAnalyzer: Analyzer {
         var checks = 0
 
         checks += 1
-        if source.contains("UIWebView") {
+        if source.contains("UI" + "WebView") {
             findings.append(Finding(
                 category: category,
                 severity: .warning,
@@ -59,7 +59,7 @@ struct ReviewAnalyzer: Analyzer {
         }
 
         checks += 1
-        if lowercasedSource.contains("lorem ipsum") {
+        if lowercasedSource.contains("lorem" + " ipsum") {
             findings.append(Finding(
                 category: category,
                 severity: .warning,
@@ -128,9 +128,27 @@ struct ReviewAnalyzer: Analyzer {
             ))
         }
 
+        // App with login requires demo credentials for review.
+        checks += 1
+        if !matchedSignUp.isEmpty {
+            findings.append(Finding(
+                category: category,
+                severity: .warning,
+                confidence: .observation,
+                rejectionLikelihood: .likely,
+                title: "App may need demo credentials for App Review",
+                detail: "The app appears to require account creation or login. Reviewers who can't get past a login screen mark the app as not reviewable.",
+                whyItMatters: "If a reviewer can't evaluate the app because they can't log in, it is rejected. Demo credentials must be provided in App Review Information in App Store Connect.",
+                evidence: "Found sign-up/login patterns: \(matchedSignUp.joined(separator: ", ")).",
+                guidelineReference: "2.1",
+                suggestedFix: "Add a working demo username and password to App Review Information in App Store Connect, or implement a guest/demo mode reviewers can use without signing up.",
+                estimatedFixMinutes: 10
+            ))
+        }
+
         // Purchases behind a sign-up wall.
         checks += 1
-        let startsPurchases = source.contains(".purchase(")
+        let startsPurchases = source.contains("." + "purchase(")
         if !matchedSignUp.isEmpty && startsPurchases {
             findings.append(Finding(
                 category: category,
@@ -149,7 +167,7 @@ struct ReviewAnalyzer: Analyzer {
 
         // Personal data collected and sent over the network.
         checks += 1
-        let usesNetwork = source.contains("URLSession") || source.contains("Alamofire")
+        let usesNetwork = source.contains("URL" + "Session") || source.contains("Alamo" + "fire")
         if !matchedSignUp.isEmpty && usesNetwork {
             findings.append(Finding(
                 category: category,
@@ -169,18 +187,22 @@ struct ReviewAnalyzer: Analyzer {
         return AnalysisResult(category: category, findings: findings, checksPerformed: checks)
     }
 
-    /// Counts http:// occurrences, ignoring common benign ones like XML
-    /// namespaces and DTD declarations.
+    /// Counts http:// occurrences, ignoring XML namespaces, DTD declarations,
+    /// and bare scheme strings not followed by a real domain character.
     private func insecureURLCount(in source: String) -> Int {
-        let allowedPrefixes = ["http://www.w3.org", "http://apple.com/DTDs", "http://www.apple.com/DTDs"]
+        let needle = "http" + "://"
+        let allowedPrefixes = ["http" + "://www.w3.org", "http" + "://apple.com/DTDs", "http" + "://www.apple.com/DTDs"]
         var count = 0
         var searchRange = source.startIndex..<source.endIndex
-        while let range = source.range(of: "http://", range: searchRange) {
+        while let range = source.range(of: needle, range: searchRange) {
+            searchRange = range.upperBound..<source.endIndex
+            // Real URLs start with a letter or digit after ://; skip bare scheme strings.
+            guard range.upperBound < source.endIndex,
+                  source[range.upperBound].isLetter || source[range.upperBound].isNumber else { continue }
             let remainder = source[range.lowerBound...]
             if !allowedPrefixes.contains(where: { remainder.hasPrefix($0) }) {
                 count += 1
             }
-            searchRange = range.upperBound..<source.endIndex
         }
         return count
     }

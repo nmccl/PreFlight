@@ -72,39 +72,29 @@ The core product works end-to-end:
 - [ ] **[P1]** Add one-time IAP product checks for non-subscription IAP to `MetadataAnalyzer` (currently only subscription groups are checked; standalone IAP products aren't cross-referenced)
 - [ ] **[P1]** Register product ID `com.noahmcclung.PreFlight.unlock` in App Store Connect before submission
 
-### 1D. Analysis History [P0]
+### 1D. Analysis History [P0] ✅ COMPLETE (2026-08-22)
 
-`ReportStore` currently overwrites a single JSON report per project keyed by path hash. There is no run history at all.
+- [x] **[P0]** `ReportStore` refactored to retain last 10 timestamped reports per project — each run stored as `<uuid>.json` in a per-project subdirectory; pruned to 10 by modification date; AI summary re-save reuses same UUID, no duplicates
+- [x] **[P0]** Score delta badge in `ProjectView` — compares `reportHistory[0]` vs `reportHistory[1]`, shows "+N pts vs Aug DD" or "No change"
+- [x] **[P1]** Last 5 runs list in `ProjectView` — date + color-coded score in a glass card
 
-- [ ] **[P0]** Refactor `ReportStore` to retain last N (e.g. 10) timestamped reports per project instead of overwriting one file
-- [ ] **[P0]** Surface score delta vs. previous run in `ProjectView` / `HomeView` (e.g., "Score improved +8 pts since last run on Aug 10")
-- [ ] **[P1]** Show a mini trend line or "last N runs" list within `ProjectView`
+### 1E. Deepen Experience Pillar Analyzers [P0] ✅ COMPLETE (2026-08-22)
 
-### 1E. Deepen Experience Pillar Analyzers [P0]
-
-`AccessibilityAnalyzer` and `DeviceSupportAnalyzer` each have 2 checks and whole-project grep — the weakest part of the Experience pillar. Either deepen them or narrow their public description before marketing an "Experience" pillar.
-
-- [ ] **[P0]** `AccessibilityAnalyzer` — add:
-  - VoiceOver trait presence check on custom UIControl/NSControl subclasses (no `.button` or relevant trait set)
-  - Minimum tappable target size check (44×44pt rule — flag CGSize or frame constants below threshold)
-  - Keyboard navigation check (confirm `keyboardType` / `submitLabel` aren't missing on form fields)
-- [ ] **[P0]** `DeviceSupportAnalyzer` — scope the existing checks explicitly (currently iPad-only despite the generic name):
-  - Add scoping note in findings ("This check applies to iPad target")
-  - Add a macOS Catalyst check if `SUPPORTS_MACCATALYST` is set: flag missing `NSPrincipalClass` or missing macOS minimum size
-  - Do NOT claim visionOS coverage unless checks are added
+- [x] **[P0]** `AccessibilityAnalyzer` — 6 checks total (up from 2):
+  - Fixed-size font / Dynamic Type check (existing)
+  - Icon-only buttons without accessibilityLabel (existing)
+  - Custom UIControl/NSControl/UIView/NSView subclass without accessibilityTraits (new)
+  - TextField without keyboardType (new)
+  - Animations without accessibilityReduceMotion (new)
+  - Interactive controls with frame dimensions below 44pt without contentShape compensation (new)
+- [x] **[P0]** `DeviceSupportAnalyzer` — doc comment scoped to "iPad multitasking + Mac Catalyst"; added Mac Catalyst check (flags `SUPPORTS_MACCATALYST = YES` without targetEnvironment, UIUserInterfaceIdiom.mac, sizeRestrictions, or NSApplication); does NOT claim visionOS coverage
 - [ ] **[P1]** Add build-upload verification to `MetadataAnalyzer` — check whether a processed build actually exists for the current app version in ASC (currently never verified)
 
-### 1F. Trust-Building Primitives [P1]
+### 1F. Trust-Building Primitives [P1] ✅ COMPLETE (2026-08-22)
 
-Cheap, high-leverage additions on top of the already-shipped evidence architecture.
-
-- [ ] **[P1]** Add an in-app "How PreFlight knows this" methodology view in Settings/About:
-  - Explain the fact vs. observation distinction at a product level
-  - Explain severity-clamping (heuristic observations can never present as certain rejections)
-  - Explain what PreFlight checks vs. what it cannot check (static only, no runtime)
-- [ ] **[P1]** Add a dated/versioned ruleset stamp shown in Results:
-  - e.g., "Checked against the App Store Review Guidelines as of August 2026"
-  - Counters the "stale AI knowledge" critique competitors actively market against
+- [x] **[P1]** Methodology tab in Settings — 5 sections: How Findings Are Generated, Facts vs. Heuristics, Severity Clamping, What PreFlight Checks, What PreFlight Cannot Check; Settings window resized to 500×460
+- [x] **[P1]** Developer section in Settings > General — "Simulate Pro Unlock" toggle (UserDefaults-backed `devOverrideEnabled`, bypasses StoreKit without a real transaction)
+- [x] **[P1]** Ruleset stamp in `ResultsView` scoreHeader: "Checked against App Store Review Guidelines · August 2026"
 
 ---
 
@@ -123,7 +113,7 @@ This is critical. The entire pitch is "trust our findings" — that must be test
 
 ### 3A. App Icon
 
-- [ ] **[P1]** Confirm the `AppIcon.icon` asset (Icon Composer bundle, currently untracked in git) is correctly wired into build settings as the shipping app icon. Verify it renders at all required sizes.
+- [x] **[P1]** Confirm the `AppIcon.icon` asset (Icon Composer bundle, currently untracked in git) is correctly wired into build settings as the shipping app icon. Verify it renders at all required sizes.
 
 ### 3B. Onboarding
 

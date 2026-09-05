@@ -3,12 +3,16 @@ import SwiftUI
 import AppKit
 #endif
 
-/// The report: score ring, AI summary, category breakdown, and findings.
+/// The report: score ring, readiness state, AI summary, category cards, and
+/// a manual checklist. Category cards are the primary navigation surface —
+/// they show status at a glance and expand into their findings.
 struct ResultsView: View {
     @Environment(AppState.self) private var appState
     @State private var ringProgress: Double = 0
     @State private var didCopyChecklist = false
     @State private var showPaywall = false
+    @State private var paywallSource: PaywallSource = .summaryCard
+    @State private var expandedCategories: Set<AnalysisCategory> = []
 
     var body: some View {
         if let report = appState.currentReport {
@@ -20,22 +24,12 @@ struct ResultsView: View {
 
     private func content(for report: Report) -> some View {
         ScrollView {
-            VStack(spacing: 28) {
+            VStack(spacing: 24) {
                 scoreHeader(for: report)
+                readinessBanner(for: report)
                 summaryCard(for: report)
-                categoryBreakdown(for: report)
-                findingsSections(for: report)
+                categoryPillars(for: report)
                 manualChecklist(for: report)
-
-//                Button {
-//                    appState.returnHome()
-//                } label: {
-//                    Label("Back to Home", systemImage: "house")
-//                        .padding(.horizontal, 8)
-//                }
-//                .buttonStyle(.glass)
-//                .controlSize(.large)
-//                .padding(.top, 8)
             }
             .padding(32)
             .frame(maxWidth: 700)
@@ -58,6 +52,7 @@ struct ResultsView: View {
                     if appState.purchases.isPurchased {
                         copyChecklist(for: report)
                     } else {
+                        paywallSource = .copyChecklist
                         showPaywall = true
                     }
                 } label: {
@@ -75,13 +70,23 @@ struct ResultsView: View {
             withAnimation(.easeOut(duration: 1.0)) {
                 ringProgress = Double(report.overallScore) / 100
             }
+            // Default: expand any category that has blockers or high-risk findings.
+            expandedCategories = Set(
+                report.results.filter { result in
+                    result.categoryState == .blocked || result.categoryState == .highRisk
+                }.map(\.category)
+            )
+            AnalyticsService.shared.resultsViewed(
+                score: report.overallScore,
+                findingsCount: report.allFindings.count,
+                hasAISummary: report.aiSummary != nil
+            )
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView(purchases: appState.purchases)
+            PaywallView(purchases: appState.purchases, source: paywallSource)
         }
     }
 
-    /// Puts the Markdown checklist on the pasteboard, with brief feedback.
     private func copyChecklist(for report: Report) {
         let markdown = ReportExporter.markdownChecklist(for: report)
         #if os(macOS)
@@ -91,6 +96,7 @@ struct ResultsView: View {
         UIPasteboard.general.string = markdown
         #endif
         didCopyChecklist = true
+        AnalyticsService.shared.checklistCopied()
         Task {
             try? await Task.sleep(for: .seconds(2))
             didCopyChecklist = false
@@ -134,10 +140,13 @@ struct ResultsView: View {
             Text(coverageDescription(for: report))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            Text("Checked against App Store Review Guidelines · September 2026")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 
-    /// The score only speaks for the checks that ran; say so right under it.
     private func coverageDescription(for report: Report) -> String {
         var text = "Based on \(report.totalChecksPerformed) automated checks"
         let skipped = report.skippedResults.count
@@ -148,6 +157,41 @@ struct ResultsView: View {
         }
         text += " · some review criteria need manual verification"
         return text
+    }
+
+    // MARK: Readiness banner
+
+    private func readinessBanner(for report: Report) -> some View {
+        let state = report.readinessState
+        return HStack(spacing: 12) {
+            Image(systemName: state.systemImage)
+                .font(.headline)
+            Text(state.displayTitle)
+                .font(.headline)
+            Spacer()
+            if report.blockerCount > 0 {
+                severityCountPill(report.blockerCount, severity: .critical)
+            }
+            if report.highRiskCount > 0 {
+                severityCountPill(report.highRiskCount, severity: .warning)
+            }
+            if report.reviewCount > 0 {
+                severityCountPill(report.reviewCount, severity: .review)
+            }
+        }
+        .foregroundStyle(state.foregroundColor)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .background(state.backgroundColor, in: .rect(cornerRadius: 14))
+    }
+
+    private func severityCountPill(_ count: Int, severity: Severity) -> some View {
+        Text("\(count) \(severity.displayName)")
+            .font(.caption.bold())
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(severity.color.opacity(0.18), in: .capsule)
+            .foregroundStyle(severity.color)
     }
 
     // MARK: Summary
@@ -165,7 +209,7 @@ struct ResultsView: View {
                     Text("On-device AI overview of your report's top priorities")
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Unlock") { showPaywall = true }
+                    Button("Unlock") { paywallSource = .summaryCard; showPaywall = true }
                         .buttonStyle(.glass)
                         .controlSize(.small)
                 }
@@ -204,133 +248,147 @@ struct ResultsView: View {
         .glassEffect(in: .rect(cornerRadius: 16))
     }
 
-    // MARK: Categories
+    // MARK: Category cards
 
-    private func categoryBreakdown(for report: Report) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+    private func categoryPillars(for report: Report) -> some View {
+        VStack(spacing: 20) {
             ForEach(Pillar.allCases, id: \.self) { pillar in
                 let results = report.results.filter { $0.category.pillar == pillar }
-                let locked = lockedCategories(for: pillar)
+                let locked = lockedCategories(for: pillar, report: report)
                 if !results.isEmpty || !locked.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text(pillar.displayName)
-                            .font(.headline)
-
-                        ForEach(results, id: \.category) { result in
-                            categoryRow(for: result)
-                        }
-                        ForEach(locked, id: \.self) { category in
-                            lockedCategoryRow(for: category)
-                        }
-                    }
+                    pillarSection(pillar: pillar, results: results, locked: locked)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .glassEffect(in: .rect(cornerRadius: 16))
     }
 
-    private func lockedCategories(for pillar: Pillar) -> [AnalysisCategory] {
-        guard !appState.purchases.isPurchased else { return [] }
-        return AnalysisCategory.allCases.filter { $0.pillar == pillar && $0.requiresPurchase }
+    private func pillarSection(pillar: Pillar, results: [AnalysisResult], locked: [AnalysisCategory]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(pillar.displayName)
+                .font(.headline)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+
+            VStack(spacing: 8) {
+                ForEach(results, id: \.category) { result in
+                    categoryCard(for: result)
+                }
+                ForEach(locked, id: \.self) { category in
+                    lockedCategoryCard(for: category)
+                }
+            }
+        }
     }
 
-    private func categoryRow(for result: AnalysisResult) -> some View {
-        HStack(spacing: 12) {
+    private func categoryCard(for result: AnalysisResult) -> some View {
+        let isExpanded = Binding(
+            get: { expandedCategories.contains(result.category) },
+            set: { if $0 { expandedCategories.insert(result.category) } else { expandedCategories.remove(result.category) } }
+        )
+
+        return DisclosureGroup(isExpanded: isExpanded) {
+            if result.wasSkipped {
+                EmptyView()
+            } else if result.findings.isEmpty {
+                Label("No issues found in this category.", systemImage: "checkmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(result.findings) { finding in
+                        FindingRow(finding: finding)
+                    }
+                }
+                .padding(.top, 6)
+            }
+        } label: {
+            categoryCardLabel(for: result)
+        }
+        .padding(14)
+        .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
+    }
+
+    private func categoryCardLabel(for result: AnalysisResult) -> some View {
+        HStack(spacing: 10) {
             Image(systemName: result.category.systemImage)
                 .foregroundStyle(.tint)
                 .frame(width: 22)
 
             Text(result.category.displayName)
+                .font(.body.weight(.medium))
 
             Spacer()
 
             if result.wasSkipped {
-                Text("Not checked")
+                Text(result.skipReason ?? "Not checked")
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
-                    .help(result.skipReason ?? "")
             } else {
-                ProgressView(value: Double(result.score) / 100)
-                    .tint(scoreColor(result.score))
-                    .frame(width: 110)
+                categoryStateBadge(result.categoryState)
                 Text("\(result.score)/100")
-                    .monospacedDigit()
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(width: 58, alignment: .trailing)
+                    .frame(width: 50, alignment: .trailing)
             }
         }
     }
 
-    private func lockedCategoryRow(for category: AnalysisCategory) -> some View {
-        HStack(spacing: 12) {
+    @ViewBuilder
+    private func categoryStateBadge(_ state: AnalysisResult.CategoryState) -> some View {
+        switch state {
+        case .blocked:
+            categoryBadge("BLOCKED", color: .red)
+        case .highRisk:
+            categoryBadge("HIGH RISK", color: .orange)
+        case .review:
+            categoryBadge("REVIEW", color: Severity.review.color)
+        case .recommendation:
+            categoryBadge("SUGGESTIONS", color: .blue)
+        case .clean:
+            categoryBadge("OK", color: .green)
+        }
+    }
+
+    private func categoryBadge(_ label: String, color: Color) -> some View {
+        Text(label)
+            .font(.caption2.bold())
+            .tracking(0.5)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.15), in: .capsule)
+            .foregroundStyle(color)
+    }
+
+    private func lockedCategoryCard(for category: AnalysisCategory) -> some View {
+        HStack(spacing: 10) {
             Image(systemName: category.systemImage)
                 .foregroundStyle(.tertiary)
                 .frame(width: 22)
-
             Text(category.displayName)
                 .foregroundStyle(.secondary)
-
             Spacer()
-
             Image(systemName: "lock.fill")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
-
-            Button("Unlock") { showPaywall = true }
+            Button("Unlock") { paywallSource = .lockedCategory; showPaywall = true }
                 .buttonStyle(.glass)
                 .controlSize(.mini)
         }
+        .padding(14)
+        .background(.quaternary.opacity(0.25), in: .rect(cornerRadius: 12))
     }
 
-    // MARK: Findings
-
-    @ViewBuilder
-    private func findingsSections(for report: Report) -> some View {
-        if report.allFindings.isEmpty {
-            ContentUnavailableView {
-                Label("No issues found", systemImage: "checkmark.seal.fill")
-            } description: {
-                Text("Everything PreFlight can check automatically passed. Apple reviews more than any tool can verify — walk through the checklist below before submitting.")
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 24) {
-                ForEach(Severity.allCases, id: \.self) { severity in
-                    let findings = report.allFindings.filter { $0.severity == severity }
-                    if !findings.isEmpty {
-                        severitySection(severity, findings: findings)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func severitySection(_ severity: Severity, findings: [Finding]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: severity.systemImage)
-                    .foregroundStyle(severity.color)
-                Text(sectionTitle(for: severity))
-                    .font(.headline)
-                Text("\(findings.count)")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(severity.color.opacity(0.15), in: .capsule)
-                    .foregroundStyle(severity.color)
-            }
-
-            ForEach(findings) { finding in
-                FindingRow(finding: finding)
-            }
+    private func lockedCategories(for pillar: Pillar, report: Report) -> [AnalysisCategory] {
+        guard !appState.purchases.isPurchased else { return [] }
+        let alreadyInReport = Set(report.results.map { $0.category })
+        return AnalysisCategory.allCases.filter {
+            $0.pillar == pillar && $0.requiresPurchase && !alreadyInReport.contains($0)
         }
     }
 
     // MARK: Manual checklist
 
-    /// Everything Apple reviews that PreFlight can't verify automatically —
-    /// shown on every report so a clean score never reads as "guaranteed".
     private func manualChecklist(for report: Report) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Not Verified by PreFlight", systemImage: "checklist")
@@ -359,14 +417,6 @@ struct ResultsView: View {
         .glassEffect(in: .rect(cornerRadius: 16))
     }
 
-    private func sectionTitle(for severity: Severity) -> String {
-        switch severity {
-        case .critical: "Critical Issues"
-        case .warning: "Warnings"
-        case .suggestion: "Suggestions"
-        }
-    }
-
     private func scoreColor(_ score: Int) -> Color {
         switch score {
         case ..<60: .red
@@ -375,6 +425,43 @@ struct ResultsView: View {
         }
     }
 }
+
+// MARK: - Readiness state display
+
+private extension Report.ReadinessState {
+    var displayTitle: String {
+        switch self {
+        case .notReady:          "NOT READY"
+        case .needsAttention:    "NEEDS ATTENTION"
+        case .reviewRecommended: "REVIEW RECOMMENDED"
+        case .ready:             "READY FOR SUBMISSION"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .notReady:          "xmark.octagon.fill"
+        case .needsAttention:    "exclamationmark.triangle.fill"
+        case .reviewRecommended: "magnifyingglass.circle.fill"
+        case .ready:             "checkmark.seal.fill"
+        }
+    }
+
+    var foregroundColor: Color {
+        switch self {
+        case .notReady:          .red
+        case .needsAttention:    .orange
+        case .reviewRecommended: Severity.review.color
+        case .ready:             .green
+        }
+    }
+
+    var backgroundColor: Color {
+        foregroundColor.opacity(0.12)
+    }
+}
+
+// MARK: - Finding row
 
 /// One expandable finding, presented like reviewer feedback: what was found,
 /// why App Review cares, the evidence, and how to fix it.
@@ -444,14 +531,19 @@ private struct FindingRow: View {
                 }
             }
         }
-        .padding(14)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
+        .padding(12)
+        .background(.background.opacity(0.5), in: .rect(cornerRadius: 10))
+        .onChange(of: isExpanded) { _, expanded in
+            if expanded {
+                AnalyticsService.shared.findingExpanded(severity: finding.severity.rawValue)
+            }
+        }
     }
 
     private func tagColor(for likelihood: RejectionLikelihood) -> Color {
         switch likelihood {
         case .certain: .red
-        case .likely: .orange
+        case .likely:  .orange
         case .possible: .yellow
         }
     }

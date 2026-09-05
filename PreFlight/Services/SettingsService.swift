@@ -41,6 +41,13 @@ final class SettingsService {
         didSet { defaults.set(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) }
     }
 
+    var isAnalyticsEnabled: Bool {
+        didSet {
+            defaults.set(isAnalyticsEnabled, forKey: Keys.isAnalyticsEnabled)
+            AnalyticsService.shared.setEnabled(isAnalyticsEnabled)
+        }
+    }
+
     // MARK: App Store Connect
 
     var ascIssuerID: String {
@@ -81,6 +88,7 @@ final class SettingsService {
         static let appearance = "appearance"
         static let isAIEnabled = "isAIEnabled"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
+        static let isAnalyticsEnabled = "isAnalyticsEnabled"
         static let ascIssuerID = "ascIssuerID"
         static let ascKeyID = "ascKeyID"
     }
@@ -90,6 +98,7 @@ final class SettingsService {
         self.appearance = Appearance(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
         self.isAIEnabled = defaults.object(forKey: Keys.isAIEnabled) as? Bool ?? true
         self.hasCompletedOnboarding = defaults.bool(forKey: Keys.hasCompletedOnboarding)
+        self.isAnalyticsEnabled = defaults.object(forKey: Keys.isAnalyticsEnabled) as? Bool ?? true
         self.ascIssuerID = defaults.string(forKey: Keys.ascIssuerID) ?? ""
         self.ascKeyID = defaults.string(forKey: Keys.ascKeyID) ?? ""
         self.ascKeyStored = KeychainStore().hasPrivateKey

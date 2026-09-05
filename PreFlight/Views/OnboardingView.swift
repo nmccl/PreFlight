@@ -26,6 +26,7 @@ struct OnboardingView: View {
             Button(isLastPage ? "Get Started" : "Continue") {
                 if isLastPage {
                     appState.settings.hasCompletedOnboarding = true
+                    AnalyticsService.shared.onboardingCompleted()
                 } else {
                     withAnimation(.smooth) {
                         pageIndex += 1
@@ -78,18 +79,18 @@ private struct OnboardingPage {
     static let all = [
         OnboardingPage(
             systemImage: "checkmark.seal.fill",
-            title: "Welcome to Developer Companion",
-            message: "Catch App Review issues before Apple does. Analyze your Xcode project and get a Release Readiness score with concrete fixes."
+            title: "Know Before You Submit",
+            message: "PreFlight analyzes your Xcode project and surfaces the configuration errors, privacy gaps, and guideline violations that trigger App Store rejections."
         ),
         OnboardingPage(
-            systemImage: "sparkle.magnifyingglass",
-            title: "Five Analyzers, One Report",
-            message: "Project configuration, privacy, StoreKit, App Store metadata, and common review blockers — each check contributes to your score out of 100."
+            systemImage: "doc.text.magnifyingglass",
+            title: "Findings, Not Guesses",
+            message: "Every finding comes from your actual project files — build settings, entitlements, privacy manifests, StoreKit config, and live App Store Connect data. Each one includes the exact issue, why it matters, and how to fix it."
         ),
         OnboardingPage(
             systemImage: "lock.shield.fill",
-            title: "Private by Design",
-            message: "Analysis runs entirely on your Mac, and Apple Intelligence summarizes results on device. Nothing about your project leaves your machine."
+            title: "Runs on Your Mac",
+            message: "Analysis is entirely local. No project files or source code leave your machine. App Store Connect credentials are optional and stored in your Keychain."
         ),
     ]
 }

@@ -11,8 +11,16 @@ struct PreFlightApp: App {
                 .environment(appState)
                 .preferredColorScheme(appState.settings.appearance.colorScheme)
                 .task {
+                    AnalyticsService.shared.configure(
+                        analyticsEnabled: UserDefaults.standard.object(forKey: "isAnalyticsEnabled") as? Bool ?? true
+                    )
                     // Verify entitlements + load product price before any UI renders.
                     await appState.purchases.load()
+                    AnalyticsService.shared.appLaunched(
+                        isFirstLaunch: !appState.settings.hasCompletedOnboarding,
+                        isPro: appState.purchases.isPurchased,
+                        hasASCCredentials: appState.settings.ascCredentials != nil
+                    )
                     // Listen for background transactions (refunds, cross-device purchases)
                     // for the app's lifetime.
                     for await result in Transaction.updates {

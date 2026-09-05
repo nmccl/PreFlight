@@ -172,7 +172,7 @@ private struct ReadinessBadge: View {
                 }
                 .frame(width: 42, height: 42)
 
-                Text("Ready")
+                Text("Readiness")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

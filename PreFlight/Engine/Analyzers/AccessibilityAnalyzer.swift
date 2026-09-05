@@ -112,7 +112,36 @@ struct AccessibilityAnalyzer: Analyzer {
             ))
         }
 
+        checks += 1
+        let hasInteractiveControls = source.contains("Button") || source.contains("onTapGesture")
+        if hasInteractiveControls && smallFrameDimension(in: source) && !source.contains("contentShape(") {
+            findings.append(Finding(
+                category: category,
+                severity: .suggestion,
+                confidence: .observation,
+                title: "Controls may have tap targets below 44pt",
+                detail: "Frame dimensions smaller than 44pt were found alongside interactive controls. iOS and iPadOS require at least 44×44pt hit areas to meet the HIG minimum tappable size.",
+                whyItMatters: "Undersized touch targets are difficult to activate reliably, especially with Motor Control accessibility features or a stylus. This surfaces in accessibility audits and can prompt review feedback on HIG compliance.",
+                evidence: "Found Button or tap gesture alongside .frame(width/height:) values below 44pt; no .contentShape() expansion detected.",
+                suggestedFix: "Use .frame(minWidth: 44, minHeight: 44) or add .contentShape(Rectangle()) to expand the hit area without affecting visual size.",
+                estimatedFixMinutes: 15
+            ))
+        }
+
         return AnalysisResult(category: category, findings: findings, checksPerformed: checks)
+    }
+
+    private func smallFrameDimension(in source: String) -> Bool {
+        let pattern = "\\.frame\\((?:width|height):\\s*(\\d+(?:\\.\\d+)?)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+        let ns = source as NSString
+        let matches = regex.matches(in: source, range: NSRange(location: 0, length: ns.length))
+        return matches.contains { match in
+            let numRange = match.range(at: 1)
+            guard numRange.location != NSNotFound,
+                  let value = Double(ns.substring(with: numRange)) else { return false }
+            return value > 0 && value < 44
+        }
     }
 
     private func occurrences(of pattern: String, in text: String) -> Int {

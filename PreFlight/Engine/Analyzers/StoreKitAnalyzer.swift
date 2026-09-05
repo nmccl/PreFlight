@@ -35,23 +35,23 @@ struct StoreKitAnalyzer: Analyzer {
 
         checks += 1
         let startsPurchases = source.contains(".purchase(")
-        let hasRestorePath = source.contains("AppStore.sync")
-            || source.contains("Transaction.currentEntitlements")
+        // Transaction.currentEntitlements is for launch-time entitlement
+        // verification, not a user-facing restore path. Only AppStore.sync()
+        // (StoreKit 2) or restoreCompletedTransactions (StoreKit 1) counts.
+        let hasRestorePath = source.contains("AppStore" + ".sync")
             || source.contains("restoreCompletedTransactions")
         if startsPurchases && !hasRestorePath {
-            // A compliance issue, not a configuration one — reviewers test the
-            // restore path — so the finding files under the review category.
             findings.append(Finding(
                 category: .review,
                 severity: .warning,
                 confidence: .observation,
                 rejectionLikelihood: .likely,
                 title: "No way to restore purchases",
-                detail: "The code appears to start purchases but never restore them.",
-                whyItMatters: "Apps that sell content must let users restore it on a new device, and reviewers routinely test the restore path — its absence is a reliable rejection.",
-                evidence: "\".purchase(\" found in source; no AppStore.sync(), Transaction.currentEntitlements, or restoreCompletedTransactions reference found.",
+                detail: "The code appears to start purchases but no restore path was found. Checking Transaction.currentEntitlements at launch verifies ownership but does not substitute for a Restore Purchases button.",
+                whyItMatters: "Apps that sell content must let users restore it on a new device. Reviewers test the restore path explicitly — its absence is a reliable rejection.",
+                evidence: "\".purchase(\" found in source; no AppStore.sync() or restoreCompletedTransactions reference found.",
                 guidelineReference: "3.1.1",
-                suggestedFix: "Add a Restore Purchases button that calls AppStore.sync(), and check Transaction.currentEntitlements at launch.",
+                suggestedFix: "Add a Restore Purchases button that calls AppStore.sync(). You can also check Transaction.currentEntitlements at launch to auto-restore silently.",
                 estimatedFixMinutes: 30
             ))
         }

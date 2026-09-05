@@ -13,10 +13,12 @@ struct KnownDataCollector: Sendable {
 }
 
 extension KnownDataCollector {
-    static let all: [KnownDataCollector] = [
+    // Patterns assembled at runtime — same self-match avoidance as PrivacyAnalyzer.usageRules.
+    // A literal import string would make PreFlight flag its own source as using the SDK.
+    static let all: [KnownDataCollector] = {[
         KnownDataCollector(
             name: "RevenueCat",
-            sourcePatterns: ["import RevenueCat", "Purchases.configure"],
+            sourcePatterns: ["import Revenue" + "Cat", "Pur" + "chases.configure"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypePurchaseHistory",
                 "NSPrivacyCollectedDataTypeDeviceID",
@@ -25,7 +27,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Firebase Analytics",
-            sourcePatterns: ["import FirebaseAnalytics", "FirebaseApp.configure", "Analytics.logEvent"],
+            sourcePatterns: ["import Firebase" + "Analytics", "Firebase" + "App.configure", "Analytics" + ".logEvent"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeProductInteraction",
                 "NSPrivacyCollectedDataTypeDeviceID",
@@ -34,7 +36,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Firebase Crashlytics",
-            sourcePatterns: ["import FirebaseCrashlytics", "Crashlytics.crashlytics()"],
+            sourcePatterns: ["import Firebase" + "Crashlytics", "Crash" + "lytics.crashlytics()"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeCrashData",
                 "NSPrivacyCollectedDataTypePerformanceData",
@@ -43,7 +45,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Amplitude",
-            sourcePatterns: ["import Amplitude", "import AmplitudeSwift"],
+            sourcePatterns: ["import Ampli" + "tude", "import Amplitude" + "Swift"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeProductInteraction",
                 "NSPrivacyCollectedDataTypeDeviceID",
@@ -52,7 +54,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Mixpanel",
-            sourcePatterns: ["import Mixpanel"],
+            sourcePatterns: ["import Mix" + "panel"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeProductInteraction",
                 "NSPrivacyCollectedDataTypeDeviceID",
@@ -61,7 +63,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Sentry",
-            sourcePatterns: ["import Sentry", "SentrySDK.start"],
+            sourcePatterns: ["import Sen" + "try", "Sentry" + "SDK.start"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeCrashData",
                 "NSPrivacyCollectedDataTypePerformanceData",
@@ -70,7 +72,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Segment",
-            sourcePatterns: ["import Segment", "SEGAnalytics.setup"],
+            sourcePatterns: ["import Seg" + "ment", "SEG" + "Analytics.setup"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeProductInteraction",
                 "NSPrivacyCollectedDataTypeDeviceID",
@@ -79,7 +81,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "AppsFlyer",
-            sourcePatterns: ["import AppsFlyerLib"],
+            sourcePatterns: ["import AppsFlyer" + "Lib"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeDeviceID",
                 "NSPrivacyCollectedDataTypeOtherUsageData",
@@ -88,7 +90,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Adjust",
-            sourcePatterns: ["import Adjust"],
+            sourcePatterns: ["import Ad" + "just"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeDeviceID",
                 "NSPrivacyCollectedDataTypeOtherUsageData",
@@ -97,7 +99,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Intercom",
-            sourcePatterns: ["import Intercom"],
+            sourcePatterns: ["import Inter" + "com"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeEmailAddress",
                 "NSPrivacyCollectedDataTypeName",
@@ -106,12 +108,12 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "PostHog",
-            sourcePatterns: ["import PostHog"],
+            sourcePatterns: ["import Post" + "Hog"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeProductInteraction",
                 "NSPrivacyCollectedDataTypeDeviceID",
             ],
             ascCategories: ["PRODUCT_INTERACTION", "DEVICE_ID"]
         ),
-    ]
+    ]}()
 }

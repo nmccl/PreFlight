@@ -56,7 +56,7 @@ nonisolated enum ReportExporter {
             tags.append("Guideline \(guideline)")
         }
         if finding.confidence == .observation {
-            tags.append("heuristic — verify")
+            tags.append("needs verification")
         }
         if !tags.isEmpty {
             line += " (\(tags.joined(separator: "; ")))"
@@ -66,9 +66,10 @@ nonisolated enum ReportExporter {
 
     private static func sectionTitle(for severity: Severity) -> String {
         switch severity {
-        case .critical: "Fix before submitting"
-        case .warning: "Fix or verify"
-        case .suggestion: "Worth improving"
+        case .critical:   "Blockers — fix before submitting"
+        case .warning:    "High Risk — fix or verify"
+        case .review:     "Review — verify these apply"
+        case .suggestion: "Recommendations — worth improving"
         }
     }
 }

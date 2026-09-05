@@ -11,6 +11,14 @@ struct Report: Identifiable, Codable, Sendable {
     let overallScore: Int
     var aiSummary: ReportSummaryText?
 
+    /// How serious the report is at a glance — driven by the worst verified finding.
+    enum ReadinessState: Sendable {
+        case notReady           // verified blockers exist
+        case needsAttention     // high-risk findings, no blockers
+        case reviewRecommended  // only review/recommendation items
+        case ready              // no significant findings
+    }
+
     init(project: Project, results: [AnalysisResult]) {
         self.id = UUID()
         self.projectName = project.name
@@ -37,9 +45,23 @@ extension Report {
         results.flatMap(\.findings).sorted { $0.severity < $1.severity }
     }
 
-    var criticalCount: Int { count(of: .critical) }
-    var warningCount: Int { count(of: .warning) }
-    var suggestionCount: Int { count(of: .suggestion) }
+    // Semantic names matching the new severity display labels.
+    var blockerCount: Int        { count(of: .critical) }
+    var highRiskCount: Int       { count(of: .warning) }
+    var reviewCount: Int         { count(of: .review) }
+    var recommendationCount: Int { count(of: .suggestion) }
+
+    // Legacy names retained so AppState analytics compiles without touching it.
+    var criticalCount: Int    { count(of: .critical) }
+    var warningCount: Int     { count(of: .warning) }
+    var suggestionCount: Int  { count(of: .suggestion) }
+
+    var readinessState: ReadinessState {
+        if blockerCount > 0  { return .notReady }
+        if highRiskCount > 0 { return .needsAttention }
+        if reviewCount > 0   { return .reviewRecommended }
+        return .ready
+    }
 
     var estimatedFixTime: Duration {
         .seconds(allFindings.reduce(0) { $0 + $1.effectiveFixMinutes } * 60)

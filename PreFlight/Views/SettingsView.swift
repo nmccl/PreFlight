@@ -10,11 +10,14 @@ struct SettingsView: View {
             Tab("App Store Connect", systemImage: "key") {
                 AppStoreConnectSettingsPane()
             }
+            Tab("Methodology", systemImage: "info.bubble") {
+                MethodologySettingsPane()
+            }
             Tab("About", systemImage: "info.circle") {
                 AboutSettingsPane()
             }
         }
-        .frame(width: 480, height: 380)
+        .frame(width: 500, height: 460)
     }
 }
 
@@ -23,6 +26,7 @@ private struct GeneralSettingsPane: View {
 
     var body: some View {
         @Bindable var settings = appState.settings
+        @Bindable var purchases = appState.purchases
         Form {
             Picker("Appearance", selection: $settings.appearance) {
                 ForEach(SettingsService.Appearance.allCases, id: \.self) { appearance in
@@ -33,6 +37,20 @@ private struct GeneralSettingsPane: View {
             .pickerStyle(.segmented)
 
             Toggle("Apple Intelligence summaries", isOn: $settings.isAIEnabled)
+            Toggle("Send anonymous usage analytics", isOn: $settings.isAnalyticsEnabled)
+
+            #if DEBUG
+            Section {
+                Toggle("Simulate Pro Unlock", isOn: $purchases.devOverrideEnabled)
+            } header: {
+                Label("Developer", systemImage: "hammer")
+            } footer: {
+                Text("Bypasses StoreKit to test Pro features without a real transaction. Disable before testing the actual purchase flow.")
+            }
+            Button("Reset Onboarding") {
+                appState.settings.hasCompletedOnboarding = false
+            }
+            #endif
         }
         .formStyle(.grouped)
     }
@@ -63,6 +81,7 @@ private struct AppStoreConnectSettingsPane: View {
                     }
                     Button("Remove Key…", role: .destructive) {
                         settings.removePrivateKey()
+                        AnalyticsService.shared.ascCredentialsRemoved()
                     }
                 } else {
                     LabeledContent("Private Key") {
@@ -107,6 +126,7 @@ private struct AppStoreConnectSettingsPane: View {
                 return
             }
             try appState.settings.storePrivateKey(pem)
+            AnalyticsService.shared.ascCredentialsConnected()
         } catch {
             importError = error.localizedDescription
         }
@@ -120,6 +140,52 @@ private struct AppStoreConnectSettingsPane: View {
     }
 }
 
+private struct MethodologySettingsPane: View {
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                methodologySection(
+                    icon: "doc.text.magnifyingglass",
+                    title: "How Findings Are Generated",
+                    body: "Every finding comes from deterministic analysis of your project files — build settings, source code, Info.plist, PrivacyInfo.xcprivacy, StoreKit config, and live App Store Connect metadata. AI is only used to write the Summary at the top of your report; it never invents or modifies findings."
+                )
+                methodologySection(
+                    icon: "checkmark.seal",
+                    title: "Facts vs. Heuristics",
+                    body: "Each finding is marked Fact or Heuristic.\n\n• Fact — derived from a verifiable value: a build setting, a plist key, a missing file, or a live ASC API response.\n\n• Heuristic — inferred from a source-code pattern that correlates with an issue but cannot be proven without running the app."
+                )
+                methodologySection(
+                    icon: "shield.lefthalf.filled",
+                    title: "Severity Clamping",
+                    body: "A heuristic finding can never appear as Critical — severity is automatically capped at Warning. This keeps source-scan inferences from looking more authoritative than they are. If a finding is Critical, it is always a verified fact."
+                )
+                methodologySection(
+                    icon: "checkmark.circle",
+                    title: "What PreFlight Checks",
+                    body: "• Project config: bundle ID, version strings, entitlements, build settings\n• Privacy: usage strings, PrivacyInfo.xcprivacy, SDK declarations vs. ASC nutrition label\n• StoreKit: paywall completeness, restore path, config consistency\n• App Review heuristics: external payment links, demo credentials, metadata\n• Accessibility: Dynamic Type, VoiceOver labels, Reduce Motion\n• Device Support: iPad multitasking, Mac Catalyst readiness\n• Metadata (Pro): live ASC screenshots, review notes, subscription groups, EULA"
+                )
+                methodologySection(
+                    icon: "xmark.circle",
+                    title: "What PreFlight Cannot Check",
+                    body: "• Runtime behavior — PreFlight never executes your app\n• Simulator flows — Restore Purchases, Sign in with Apple, account deletion require manual testing\n• Subjective reviewer judgment — sections like 4.2 (Minimum Functionality) require human review\n• Content appropriateness, copyright, and IP issues\n\nSee the \"Not Verified by PreFlight\" checklist at the bottom of each report."
+                )
+            }
+            .padding(20)
+        }
+    }
+
+    private func methodologySection(icon: String, title: String, body: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: icon)
+                .font(.headline)
+            Text(body)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
 private struct AboutSettingsPane: View {
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -130,7 +196,7 @@ private struct AboutSettingsPane: View {
     }
 
     private var contactURL: URL? {
-        URL(string: "mailto:noah_mcclung@icloud.com")
+        URL(string: "mailto:contact@noahmcclung.com")
     }
 
     private var privacyURL: URL? {
