@@ -1,7 +1,13 @@
 import SwiftUI
 
-/// Shown when a free-tier user taps a paid feature.
-/// Presents what the unlock adds; does not re-list the free tier.
+/// Shown when the free trial has ended and the user needs to unlock PreFlight.
+/// Also shown from the results summary card and copy-checklist button when
+/// the user views a report without full access.
+///
+/// App Review checks that a purchase screen states exactly what is being sold,
+/// its price, whether it renews, how to restore it, and links out to the terms
+/// of use and privacy policy. All of those are required here — don't remove
+/// them without checking Guidelines 3.1.1 and 3.1.2.
 struct PaywallView: View {
     let purchases: PurchaseService
     let source: PaywallSource
@@ -39,37 +45,43 @@ struct PaywallView: View {
                 .foregroundStyle(.tint)
                 .padding(.bottom, 4)
 
-            Text("Unlock Full Analysis")
+            Text("Your Free Trial Has Ended")
                 .font(.title2.bold())
 
-            Text("One-time purchase · No subscription")
+            Text("PreFlight Unlock — \(purchases.displayPrice)")
+                .font(.headline)
+
+            Text("One-time purchase · Not a subscription · Never auto-renews")
+                .font(.caption)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
         .padding(.top, 32)
         .padding(.bottom, 24)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity)
     }
 
     private var featuresSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             featureRow(
-                "App Store Metadata",
-                detail: "Live checks against your ASC record: screenshots, keywords, support URL",
-                image: AnalysisCategory.metadata.systemImage
+                "All 7 Analyzers",
+                detail: "Project, privacy, metadata, StoreKit, accessibility, device support, and review readiness in one report",
+                image: "sparkle.magnifyingglass"
             )
             featureRow(
-                "StoreKit Analysis",
-                detail: "IAP configuration, restore path, paywall compliance checks",
-                image: AnalysisCategory.storeKit.systemImage
-            )
-            featureRow(
-                "AI Summary",
-                detail: "On-device Apple Intelligence overview of your report's top priorities",
+                "Apple Intelligence Insights",
+                detail: "On-device AI cross-references your source code and configuration to surface hidden issues",
                 image: "sparkles"
             )
             featureRow(
+                "App Store Connect Integration",
+                detail: "Live checks against your ASC record: screenshots, metadata, keywords, support URL",
+                image: AnalysisCategory.metadata.systemImage
+            )
+            featureRow(
                 "Export Fix Checklist",
-                detail: "Copy your findings as a Markdown checklist to track outside the app",
+                detail: "Copy your findings as a Markdown checklist to track and share outside the app",
                 image: "list.clipboard.fill"
             )
         }
@@ -97,6 +109,7 @@ struct PaywallView: View {
             .controlSize(.large)
             .disabled(purchases.isLoading)
 
+            // Required for non-consumables by Guideline 3.1.1.
             Button {
                 Task { await purchases.restore() }
             } label: {
@@ -114,13 +127,19 @@ struct PaywallView: View {
                     .multilineTextAlignment(.center)
             }
 
+            Text("Payment is charged to your Apple Account at confirmation of purchase. This unlock is permanent and applies to every Mac signed in to the same Apple Account.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+
+            Text("PreFlight surfaces issues to investigate — it does not guarantee App Review approval and cannot catch every possible rejection.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+
             HStack(spacing: 20) {
-                if let url = URL(string: "https://preflight.info/privacy") {
-                    Link("Privacy Policy", destination: url)
-                }
-                if let url = URL(string: "https://preflight.info/terms") {
-                    Link("Terms of Use", destination: url)
-                }
+                Link("Terms of Use", destination: AppLinks.termsOfUse)
+                Link("Privacy Policy", destination: AppLinks.privacyPolicy)
             }
             .font(.caption)
             .foregroundStyle(.secondary)

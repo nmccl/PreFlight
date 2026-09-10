@@ -19,10 +19,14 @@ struct AccessibilityAnalyzer: Analyzer {
             return .skipped(category, reason: "No source files found to inspect.")
         }
 
-        let source = context.combinedSource()
+        let source = context.applicationCode()
         var findings: [Finding] = []
         var checks = 0
 
+        // Dynamic Type is an iOS-family feature. A macOS-only app has no
+        // preferred-content-size setting and no UIFontMetrics, so fixed point
+        // sizes there aren't an accessibility defect.
+        if context.platforms.supportsIOS {
         checks += 1
         let fixedFontCount = Self.fixedFontPatterns.reduce(0) { count, pattern in
             count + occurrences(of: pattern, in: source)
@@ -39,6 +43,7 @@ struct AccessibilityAnalyzer: Analyzer {
                 suggestedFix: "Use text styles (.font(.body), .title, ...) or scale custom fonts with UIFontMetrics / relativeTo:.",
                 estimatedFixMinutes: 30
             ))
+        }
         }
 
         checks += 1

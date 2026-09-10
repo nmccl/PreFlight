@@ -112,6 +112,12 @@ final class AnalyticsService {
         PostHogSDK.shared.capture("asc_credentials_removed")
     }
 
+    // MARK: - Trial
+
+    func trialStarted() {
+        PostHogSDK.shared.capture("trial_started")
+    }
+
     // MARK: - Paywall
 
     func paywallShown(source: PaywallSource) {
@@ -159,6 +165,6 @@ enum ProjectOpenSource: String {
 
 enum PaywallSource: String {
     case summaryCard = "summary_card"
-    case lockedCategory = "locked_category"
     case copyChecklist = "copy_checklist"
+    case trialExpired = "trial_expired"
 }

@@ -1,5 +1,6 @@
 import Foundation
 
+
 /// The outcome of one analyzer's run: its findings and a 0–100 category score.
 /// Codable so reports containing it can be persisted between launches.
 struct AnalysisResult: Codable, Sendable {

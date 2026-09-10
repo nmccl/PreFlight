@@ -6,7 +6,10 @@ import Foundation
 struct ProjectAnalyzer: Analyzer {
     let category = AnalysisCategory.project
 
-    private static let placeholderPrefixes = ["com.example.", "com.yourcompany.", "com.mycompany."]
+    private static let placeholderPrefixes = [
+        "com.example.", "com.yourcompany.", "com.mycompany.", "com.test.", "com.testing.",
+        "com.placeholder.", "com.sample.", "com.demo.", "com.yourapp.", "com.company.",
+    ]
 
     /// Entitlements that grant access to a capability, paired with source
     /// patterns that would indicate the capability is actually used.
@@ -25,7 +28,7 @@ struct ProjectAnalyzer: Analyzer {
         EntitlementRule(key: "com.apple.security.personal-information.addressbook", usagePatterns: ["import Con" + "tacts", "CNContact" + "Store"],                                          capability: "contacts"),
         EntitlementRule(key: "com.apple.security.personal-information.calendars",   usagePatterns: ["import Event" + "Kit", "EKEvent" + "Store"],                                            capability: "the calendar"),
         EntitlementRule(key: "com.apple.security.personal-information.photos-library", usagePatterns: ["import Pho" + "tos", "PHPhoto" + "Library"],                                         capability: "the photo library"),
-        EntitlementRule(key: "com.apple.developer.healthkit",                    usagePatterns: ["HKHealth" + "Store"],                                                                    capability: "HealthKit"),
+        EntitlementRule(key: "com.apple.developer.healthkit",                    usagePatterns: ["HKHealth" + "Store", "HKObject" + "Query", "HKQuery", "import Health" + "Kit"],   capability: "HealthKit"),
         EntitlementRule(key: "com.apple.developer.applesignin",                  usagePatterns: ["AuthenticationServices", "SignInWithApple", "ASAuthorization"],                           capability: "Sign in with Apple"),
         EntitlementRule(key: "aps-environment",                                  usagePatterns: ["UserNotifications", "registerForRemoteNotifications", "UNUserNotificationCenter"],        capability: "push notifications"),
         EntitlementRule(key: "com.apple.developer.icloud-services",              usagePatterns: ["NSPersistentCloud" + "KitContainer", "CKContainer" + ".default()", "CKContainer(", "NSUbiquitousKeyValueStore"], capability: "iCloud"),
@@ -35,7 +38,7 @@ struct ProjectAnalyzer: Analyzer {
     func analyze(_ context: AnalysisContext) async -> AnalysisResult {
         var findings: [Finding] = []
         var checks = 0
-        let source = context.combinedSource()
+        let productionSource = context.productionSource()
 
         let appTargets = context.targets.filter(\.isApplication)
         guard !appTargets.isEmpty else {
@@ -155,7 +158,7 @@ struct ProjectAnalyzer: Analyzer {
                         at: entitlementsURL,
                         path: entitlementsPath,
                         targetName: target.name,
-                        source: source
+                        source: productionSource
                     ))
                 }
             }

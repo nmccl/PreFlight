@@ -16,6 +16,10 @@ struct PreFlightApp: App {
                     )
                     // Verify entitlements + load product price before any UI renders.
                     await appState.purchases.load()
+                    // Resolve the App Store-signed trial anchor. Runs after
+                    // the entitlement check so a purchased user never waits
+                    // on it.
+                    await appState.trial.load()
                     AnalyticsService.shared.appLaunched(
                         isFirstLaunch: !appState.settings.hasCompletedOnboarding,
                         isPro: appState.purchases.isPurchased,
@@ -27,7 +31,11 @@ struct PreFlightApp: App {
                         await appState.purchases.handleTransaction(result)
                     }
                 }
+                .frame(minWidth: 550, idealWidth: 1024, maxWidth: .infinity,
+                       minHeight: 320, idealHeight: 768, maxHeight: .infinity)
         }
+        .windowResizability(.contentSize)
+        
         #if os(macOS)
         Settings {
             SettingsView()

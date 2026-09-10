@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FE970B913052EDAA006846F8 /* PreFlight.storekit in Resources */ = {isa = PBXBuildFile; fileRef = FE970B903052EDAA006846F8 /* PreFlight.storekit */; };
 		FEC43883300338140044F9C4 /* PLAN.md in Resources */ = {isa = PBXBuildFile; fileRef = FEC4385F300338140044F9C4 /* PLAN.md */; };
 		FEFB2B9030499EB6006B4584 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = FEFB2B8F30499EB6006B4584 /* PostHog */; };
 /* End PBXBuildFile section */
@@ -22,6 +23,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		FE970B903052EDAA006846F8 /* PreFlight.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; name = PreFlight.storekit; path = PreFlight/PreFlight.storekit; sourceTree = "<group>"; };
 		FEA1AE0A2FFCB26F00AAFE2A /* PreFlight.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PreFlight.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FEC4385F300338140044F9C4 /* PLAN.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PLAN.md; sourceTree = "<group>"; };
 		FEC9036D302CDC910009D21A /* PreFlightTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PreFlightTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -58,6 +60,7 @@
 		000000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
+				FE970B903052EDAA006846F8 /* PreFlight.storekit */,
 				000000000000000000000010 /* PreFlight */,
 				FEA1AE0A2FFCB26F00AAFE2A /* PreFlight.app */,
 				FEC4385F300338140044F9C4 /* PLAN.md */,
@@ -157,6 +160,7 @@
 		000000000000000140000000 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
+				FE970B913052EDAA006846F8 /* PreFlight.storekit in Resources */,
 				FEC43883300338140044F9C4 /* PLAN.md in Resources */,
 			);
 		};

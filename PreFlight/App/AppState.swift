@@ -8,6 +8,13 @@ enum AnalysisStageState: Sendable {
     case finished
 }
 
+/// The Apple Intelligence investigation phase, for the loading screen AI row.
+enum AIInvestigationStage: Sendable, Equatable {
+    case idle
+    case running
+    case complete(count: Int)
+}
+
 /// The app's single source of truth, created once at launch and shared with
 /// every view through the SwiftUI environment.
 @MainActor
@@ -17,6 +24,7 @@ final class AppState {
     let router: Router
     let recents: RecentProjectsService
     let purchases: PurchaseService
+    let trial: TrialManager
     private let projectService = ProjectService()
     private let reportGenerator = AIReportGenerator()
     private let reportStore = ReportStore()
@@ -25,8 +33,13 @@ final class AppState {
     var currentReport: Report?
     var errorMessage: String?
     private(set) var analysisStages: [AnalysisCategory: AnalysisStageState] = [:]
+    private(set) var aiInvestigationStage: AIInvestigationStage = .idle
     /// All stored reports for the current project, newest first (up to 10).
     private(set) var reportHistory: [Report] = []
+
+    /// Full access = StoreKit entitlement confirmed OR 7-day trial still active.
+    /// Purchase always takes precedence — trial expiry cannot revoke a purchased entitlement.
+    var hasFullAccess: Bool { purchases.isPurchased || trial.isTrialActive }
 
     /// Holds the sandbox grant for the open project so files stay readable
     /// for the whole session; released in closeProject().
@@ -42,12 +55,14 @@ final class AppState {
         settings: SettingsService? = nil,
         router: Router? = nil,
         recents: RecentProjectsService? = nil,
-        purchases: PurchaseService? = nil
+        purchases: PurchaseService? = nil,
+        trial: TrialManager? = nil
     ) {
         self.settings = settings ?? SettingsService()
         self.router = router ?? Router()
         self.recents = recents ?? RecentProjectsService()
         self.purchases = purchases ?? PurchaseService()
+        self.trial = trial ?? TrialManager()
     }
 
     func openProject(at url: URL, parentBookmarkData: Data? = nil, source: ProjectOpenSource = .filePicker) {
@@ -108,18 +123,17 @@ final class AppState {
         let projectPath = project.projectFileURL.path
         let analysisStart = Date()
 
-        // Paid analyzers (Metadata + StoreKit) only run after the Pro unlock.
-        // Free users still get Project, Privacy, Accessibility, DeviceSupport, Review.
-        var analyzers: [any Analyzer] = [
+        // All analyzers run regardless of purchase/trial state.
+        // Access is gated at the project view before analysis starts.
+        let analyzers: [any Analyzer] = [
             ProjectAnalyzer(),
             PrivacyAnalyzer(),
             AccessibilityAnalyzer(),
             DeviceSupportAnalyzer(),
             ReviewAnalyzer(),
+            MetadataAnalyzer(),
+            StoreKitAnalyzer(),
         ]
-        if purchases.isPurchased {
-            analyzers += [MetadataAnalyzer(), StoreKitAnalyzer()]
-        }
 
         AnalyticsService.shared.analysisStarted(
             isPro: purchases.isPurchased,
@@ -134,12 +148,25 @@ final class AppState {
         router.showAnalysis()
 
         do {
-            let context = try projectService.makeContext(for: project, credentials: settings.ascCredentials)
-            let results = await engine.run(context: context) { [weak self] progress in
+            let context = try await projectService.makeContext(for: project, credentials: settings.ascCredentials)
+            var results = await engine.run(context: context) { [weak self] progress in
                 Task { @MainActor in
                     self?.applyProgress(progress)
                 }
             }
+
+            // Semantic verification: heuristic candidates are checked against
+            // compact facts about the app before they reach the report, so
+            // false positives are dropped and unverifiable ones are downgraded
+            // rather than shown as confident findings. Deterministic facts
+            // bypass this entirely.
+            if hasFullAccess && settings.isAIEnabled {
+                results = await AIFindingVerifier().verify(
+                    results: results,
+                    facts: ApplicationFacts.build(from: context)
+                )
+            }
+
             let report = Report(project: project, results: results)
 
             AnalyticsService.shared.analysisCompleted(
@@ -153,25 +180,49 @@ final class AppState {
                 isPro: purchases.isPurchased
             )
 
-            // Give the loading screen a beat so stage changes stay readable.
-            try? await Task.sleep(for: .seconds(1.0))
-
             currentReport = report
             reportStore.save(report, forProjectPath: projectPath)
-            reportHistory = reportStore.loadHistory(forProjectPath: projectPath)
-            recents.noteAnalyzed(projectPath: projectPath, score: report.overallScore)
-            router.showResults()
 
-            // AI summary only generates for Pro users; free users see the locked state in ResultsView.
-            // Re-save so the summary persists for next launch.
-            if purchases.isPurchased {
-                let summary = await reportGenerator.summary(for: report, aiEnabled: settings.isAIEnabled)
+            // AI investigation runs when the user has full access (trial or purchase).
+            // The loading screen shows a live Apple Intelligence row while this runs.
+            if hasFullAccess {
+                aiInvestigationStage = .running
+
+                if settings.isAIEnabled {
+                    print("[PreFlight AI] Starting investigation (hasFullAccess=true, isAIEnabled=true)")
+                    let candidates = await AIInvestigator().investigate(
+                        evidenceBundle: context.evidenceBundle,
+                        projectName: project.name,
+                        bundleID: project.bundleIdentifier,
+                        deterministicFindings: report.allFindings
+                    )
+                    print("[PreFlight AI] Validator input: \(candidates.count) candidates")
+                    let aiFindings = AIFindingValidator().validate(
+                        candidates: candidates,
+                        against: context.evidenceBundle,
+                        existingFindings: report.allFindings
+                    )
+                    print("[PreFlight AI] Validator output: \(aiFindings.count) findings")
+                    currentReport?.aiFindings = aiFindings
+                    print("[PreFlight AI] currentReport.aiFindings assigned (\(aiFindings.count))")
+                }
+
+                let enrichedReport = currentReport ?? report
+                let summary = await reportGenerator.summary(for: enrichedReport, aiEnabled: settings.isAIEnabled)
                 currentReport?.aiSummary = summary
+                aiInvestigationStage = .complete(count: currentReport?.aiFindings.count ?? 0)
+
                 if let finished = currentReport {
                     reportStore.save(finished, forProjectPath: projectPath)
-                    reportHistory = reportStore.loadHistory(forProjectPath: projectPath)
                 }
             }
+
+            reportHistory = reportStore.loadHistory(forProjectPath: projectPath)
+            recents.noteAnalyzed(projectPath: projectPath, score: report.overallScore)
+
+            // Brief pause so the completion state on the loading screen is readable.
+            try? await Task.sleep(for: .seconds(1.0))
+            router.showResults()
         } catch {
             errorMessage = error.localizedDescription
             router.showProject()
@@ -187,6 +238,7 @@ final class AppState {
         currentReport = nil
         reportHistory = []
         analysisStages = [:]
+        aiInvestigationStage = .idle
     }
 
     func returnHome() {

@@ -23,10 +23,16 @@ struct SettingsView: View {
 
 private struct GeneralSettingsPane: View {
     @Environment(AppState.self) private var appState
+    #if DEBUG
+    @State private var showPaywall = false
+    #endif
 
     var body: some View {
         @Bindable var settings = appState.settings
         @Bindable var purchases = appState.purchases
+        #if DEBUG
+        @Bindable var trial = appState.trial
+        #endif
         Form {
             Picker("Appearance", selection: $settings.appearance) {
                 ForEach(SettingsService.Appearance.allCases, id: \.self) { appearance in
@@ -47,12 +53,28 @@ private struct GeneralSettingsPane: View {
             } footer: {
                 Text("Bypasses StoreKit to test Pro features without a real transaction. Disable before testing the actual purchase flow.")
             }
-            Button("Reset Onboarding") {
+
+            Section {
+                Toggle("Simulate Expired Trial", isOn: $trial.debugForceExpired)
+                Button("Show Paywall") { showPaywall = true }
+            } header: {
+                Label("Paywall", systemImage: "lock")
+            } footer: {
+                Text("Simulate Expired Trial makes the paywall appear where a real user would hit it — open a project and click Analyze. Turn off Simulate Pro Unlock first, or full access wins and the paywall never shows. Show Paywall presents it directly for a quick screenshot.")
+            }
+
+            Button("Reset Onboarding and Free Trial") {
+                appState.trial.resetForTesting()
                 appState.settings.hasCompletedOnboarding = false
             }
             #endif
         }
         .formStyle(.grouped)
+        #if DEBUG
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(purchases: appState.purchases, source: .trialExpired)
+        }
+        #endif
     }
 }
 
@@ -191,42 +213,18 @@ private struct AboutSettingsPane: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
-    private var websiteURL: URL? {
-        URL(string: "https://preflight.info")
-    }
-
-    private var contactURL: URL? {
-        URL(string: "mailto:contact@noahmcclung.com")
-    }
-
-    private var privacyURL: URL? {
-        URL(string: "https://preflight.info/privacy")
-    }
-
-    private var termsURL: URL? {
-        URL(string: "https://preflight.info/terms")
-    }
-
     var body: some View {
         Form {
             LabeledContent("Version", value: appVersion)
-            if let contactURL {
-                Link("Contact Support", destination: contactURL)
+            Link("Contact Support", destination: AppLinks.support)
+            Link(destination: AppLinks.website) {
+                Label("Website", systemImage: "globe")
             }
-            if let websiteURL {
-                Link(destination: websiteURL) {
-                    Label("Website", systemImage: "globe")
-                }
+            Link(destination: AppLinks.privacyPolicy) {
+                Label("Privacy Policy", systemImage: "hand.raised.fill")
             }
-            if let privacyURL {
-                Link(destination: privacyURL) {
-                    Label("Privacy", systemImage: "hand.raised.fill")
-                }
-            }
-            if let termsURL {
-                Link(destination: termsURL) {
-                    Label("Terms and Conditions", systemImage: "doc.text")
-                }
+            Link(destination: AppLinks.termsOfUse) {
+                Label("Terms of Use", systemImage: "doc.text")
             }
         }
         .formStyle(.grouped)

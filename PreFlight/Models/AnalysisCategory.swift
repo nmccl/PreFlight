@@ -61,14 +61,6 @@ extension AnalysisCategory {
         }
     }
 
-    /// True for categories that require the $12.99 Pro unlock.
-    var requiresPurchase: Bool {
-        switch self {
-        case .metadata, .storeKit: true
-        default: false
-        }
-    }
-
     /// Relative influence on the overall Release Readiness score. The overall
     /// score normalizes by the total weight of the categories that ran, so
     /// these are proportions, not percentages.

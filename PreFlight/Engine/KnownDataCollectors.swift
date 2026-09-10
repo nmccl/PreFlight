@@ -45,7 +45,7 @@ extension KnownDataCollector {
         ),
         KnownDataCollector(
             name: "Amplitude",
-            sourcePatterns: ["import Ampli" + "tude", "import Amplitude" + "Swift"],
+            sourcePatterns: ["import Ampli" + "tude", "import" + " AmplitudeSwift"],
             xcprivacyTypes: [
                 "NSPrivacyCollectedDataTypeProductInteraction",
                 "NSPrivacyCollectedDataTypeDeviceID",

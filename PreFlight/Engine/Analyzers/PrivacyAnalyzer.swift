@@ -9,8 +9,8 @@ struct PrivacyAnalyzer: Analyzer {
     let category = AnalysisCategory.privacy
 
     /// Source patterns that trigger a required Info.plist usage description.
-    /// All patterns are assembled at runtime via string concatenation so that
-    /// PreFlight analyzing its own project doesn't match its own rules.
+    /// ALL patterns are assembled at runtime via string concatenation so that
+    /// PreFlight analyzing its own project doesn't match its own rule definitions.
     private struct UsageRule {
         let sourcePatterns: [String]   // any match triggers the rule
         let plistKey: String
@@ -38,8 +38,8 @@ struct PrivacyAnalyzer: Analyzer {
         UsageRule(
             sourcePatterns: [
                 "CLLocation" + "Manager()",
-                "requestWhenInUseAuthorization()",
-                "requestAlwaysAuthorization()"
+                "requestWhenInUse" + "Authorization()",
+                "requestAlways" + "Authorization()"
             ],
             plistKey: "NSLocationWhenInUseUsageDescription",
             capability: "location"
@@ -79,7 +79,7 @@ struct PrivacyAnalyzer: Analyzer {
         UsageRule(
             sourcePatterns: [
                 "HKHealth" + "Store()",
-                "requestAuthorization(toShare:"
+                "requestAuthorization(" + "toShare:"
             ],
             plistKey: "NSHealthShareUsageDescription",
             capability: "health data"
@@ -102,8 +102,8 @@ struct PrivacyAnalyzer: Analyzer {
         ),
         UsageRule(
             sourcePatterns: [
-                "evaluatePolicy(.deviceOwnerAuthentication",
-                "canEvaluatePolicy(.deviceOwnerAuthentication"
+                "evaluatePolicy(." + "deviceOwnerAuthentication",
+                "canEvaluatePolicy(." + "deviceOwnerAuthentication"
             ],
             plistKey: "NSFaceIDUsageDescription",
             capability: "Face ID or Touch ID"
@@ -124,17 +124,17 @@ struct PrivacyAnalyzer: Analyzer {
             apiName: "UserDefaults"
         ),
         RequiredReasonRule(
-            sourcePatterns: [".systemUptime", "ProcessInfo.processInfo.systemUptime"],
+            sourcePatterns: ["." + "systemUptime", "ProcessInfo.processInfo." + "systemUptime"],
             categoryKey: "NSPrivacyAccessedAPICategorySystemBootTime",
             apiName: "systemUptime / SystemBootTime"
         ),
         RequiredReasonRule(
-            sourcePatterns: [".creationDate", "NSURLCreationDate", ".modificationDate"],
+            sourcePatterns: ["." + "creationDate", "NSURL" + "CreationDate", "." + "modificationDate"],
             categoryKey: "NSPrivacyAccessedAPICategoryFileTimestamp",
             apiName: "file timestamps"
         ),
         RequiredReasonRule(
-            sourcePatterns: ["volumeAvailableCapacity", "volumeTotalCapacity"],
+            sourcePatterns: ["volume" + "AvailableCapacity", "volume" + "TotalCapacity"],
             categoryKey: "NSPrivacyAccessedAPICategoryDiskSpace",
             apiName: "disk space"
         ),
@@ -153,7 +153,11 @@ struct PrivacyAnalyzer: Analyzer {
         var findings: [Finding] = []
         var checks = 0
 
-        let allSource = context.combinedSource()
+        // Sensitive-API usage must come from the application's own code with
+        // comments and string literals removed. An API named in a comment, held
+        // in a string, or called by a vendored dependency is not the app
+        // reaching for the camera.
+        let allSource = context.applicationCode()
         // Strip #if DEBUG ... #endif blocks before checking — those paths don't
         // run in production builds and shouldn't trigger privacy requirement findings.
         let productionSource = sourceStrippingDebugBlocks(allSource)
@@ -373,7 +377,8 @@ struct PrivacyAnalyzer: Analyzer {
         let apiEntries = plist["NSPrivacyAccessedAPITypes"] as? [[String: Any]] ?? []
         let accessedAPITypes: [PrivacyManifest.AccessedAPIEntry] = apiEntries.compactMap { entry in
             guard let key = entry["NSPrivacyAccessedAPIType"] as? String else { return nil }
-            let reasons = entry["NSPrivacyAccessedAPITypeReasonCodes"] as? [String] ?? []
+            // Correct key is NSPrivacyAccessedAPITypeReasons (not ReasonCodes)
+            let reasons = entry["NSPrivacyAccessedAPITypeReasons"] as? [String] ?? []
             return PrivacyManifest.AccessedAPIEntry(categoryKey: key, reasonCodes: reasons)
         }
 

@@ -1,32 +1,42 @@
 import SwiftUI
 
 /// First-launch walkthrough, shown as a non-dismissable sheet until completed.
+/// The final step starts the 7-day free trial.
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
     @State private var pageIndex = 0
 
     private let pages = OnboardingPage.all
 
-    private var isLastPage: Bool {
-        pageIndex == pages.count - 1
-    }
+    /// The trial step sits one past the informational pages.
+    private var trialPageIndex: Int { pages.count }
+    private var isTrialPage: Bool { pageIndex == trialPageIndex }
+    private var stepCount: Int { pages.count + 1 }
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            pageContent(for: pages[pageIndex])
-                .id(pageIndex)
-                .transition(.push(from: .trailing))
+            Group {
+                if isTrialPage {
+                    trialPageContent
+                } else {
+                    pageContent(for: pages[pageIndex])
+                }
+            }
+            .id(pageIndex)
+            .transition(.push(from: .trailing))
 
             Spacer()
 
             pageDots
 
-            Button(isLastPage ? "Get Started" : "Continue") {
-                if isLastPage {
+            Button(isTrialPage ? "Start Free Trial" : "Continue") {
+                if isTrialPage {
+                    appState.trial.beginTrial()
                     appState.settings.hasCompletedOnboarding = true
                     AnalyticsService.shared.onboardingCompleted()
+                    AnalyticsService.shared.trialStarted()
                 } else {
                     withAnimation(.smooth) {
                         pageIndex += 1
@@ -36,9 +46,14 @@ struct OnboardingView: View {
             .buttonStyle(.glassProminent)
             .controlSize(.extraLarge)
             .padding(.top, 24)
-            .padding(.bottom, 40)
+            .padding(.bottom, isTrialPage ? 16 : 40)
+
+            if isTrialPage {
+                legalLinks
+                    .padding(.bottom, 24)
+            }
         }
-        .frame(width: 520, height: 560)
+        .frame(width: 520, height: 600)
     }
 
     private func pageContent(for page: OnboardingPage) -> some View {
@@ -60,9 +75,52 @@ struct OnboardingView: View {
         .padding(.horizontal, 32)
     }
 
+    /// The trial step. App Review expects the trial length, what happens when
+    /// it ends, and the exact price to all be stated before the user commits.
+    private var trialPageContent: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "clock.badge.checkmark.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.tint)
+                .frame(width: 120, height: 120)
+                .glassEffect(in: .circle)
+
+            Text("7 Days, Fully Unlocked")
+                .font(.largeTitle.bold())
+
+            Text("Every analyzer, Apple Intelligence insights, App Store Connect checks, and checklist export — free for 7 days. No payment method required.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 380)
+
+            VStack(spacing: 4) {
+                Text("After the trial, unlock PreFlight for \(appState.purchases.displayPrice)")
+                    .font(.callout.weight(.medium))
+                Text("One-time purchase · Not a subscription · Never auto-renews")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .frame(maxWidth: 400)
+            .glassEffect(in: .rect(cornerRadius: 12))
+        }
+        .padding(.horizontal, 32)
+    }
+
+    private var legalLinks: some View {
+        HStack(spacing: 20) {
+            Link("Terms of Use", destination: AppLinks.termsOfUse)
+            Link("Privacy Policy", destination: AppLinks.privacyPolicy)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
     private var pageDots: some View {
         HStack(spacing: 8) {
-            ForEach(pages.indices, id: \.self) { index in
+            ForEach(0..<stepCount, id: \.self) { index in
                 Circle()
                     .fill(index == pageIndex ? Color.accentColor : Color.secondary.opacity(0.35))
                     .frame(width: 8, height: 8)

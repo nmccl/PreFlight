@@ -10,6 +10,9 @@ struct Report: Identifiable, Codable, Sendable {
     let results: [AnalysisResult]
     let overallScore: Int
     var aiSummary: ReportSummaryText?
+    /// Findings produced by the on-device AI investigation layer.
+    /// Empty for free users, when AI is disabled, or when the model is unavailable.
+    var aiFindings: [Finding]
 
     /// How serious the report is at a glance — driven by the worst verified finding.
     enum ReadinessState: Sendable {
@@ -27,6 +30,20 @@ struct Report: Identifiable, Codable, Sendable {
         self.results = results
         self.overallScore = Self.weightedScore(for: results)
         self.aiSummary = nil
+        self.aiFindings = []
+    }
+
+    // Custom decoder so reports saved before Phase B (without aiFindings) load cleanly.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id              = try c.decode(UUID.self,             forKey: .id)
+        projectName     = try c.decode(String.self,           forKey: .projectName)
+        bundleIdentifier = try c.decodeIfPresent(String.self, forKey: .bundleIdentifier)
+        generatedAt     = try c.decode(Date.self,             forKey: .generatedAt)
+        results         = try c.decode([AnalysisResult].self, forKey: .results)
+        overallScore    = try c.decode(Int.self,              forKey: .overallScore)
+        aiSummary       = try c.decodeIfPresent(ReportSummaryText.self, forKey: .aiSummary)
+        aiFindings      = (try? c.decodeIfPresent([Finding].self, forKey: .aiFindings)) ?? []
     }
 
     /// Weighted average of category scores. Skipped categories are excluded
@@ -42,7 +59,7 @@ struct Report: Identifiable, Codable, Sendable {
 
 extension Report {
     var allFindings: [Finding] {
-        results.flatMap(\.findings).sorted { $0.severity < $1.severity }
+        (results.flatMap(\.findings) + aiFindings).sorted { $0.severity < $1.severity }
     }
 
     // Semantic names matching the new severity display labels.

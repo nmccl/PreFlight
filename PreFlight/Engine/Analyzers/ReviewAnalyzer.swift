@@ -18,14 +18,22 @@ struct ReviewAnalyzer: Analyzer {
     private static let deletionPatterns = ["delete" + "Account", "delete" + " account", "account" + " deletion", "delete" + "User"]
 
     func analyze(_ context: AnalysisContext) async -> AnalysisResult {
-        let source = context.combinedSource()
+        // Behavior claims are checked against the app's own code with comments
+        // and string literals stripped, so a framework named in documentation
+        // or a pattern held in a string can't stand in for real usage.
+        let code = context.applicationCode()
+        // Text-is-the-issue checks keep string literals but still exclude
+        // tests and vendored dependencies.
+        let source = context.applicationSource()
         let lowercasedSource = source.lowercased()
 
         var findings: [Finding] = []
         var checks = 0
 
+        // UIWebView is UIKit-only; a macOS AppKit/SwiftUI app can't use it.
+        if context.platforms.supportsIOS {
         checks += 1
-        if source.contains("UI" + "WebView") {
+        if code.contains("UI" + "WebView") {
             findings.append(Finding(
                 category: category,
                 severity: .warning,
@@ -38,6 +46,7 @@ struct ReviewAnalyzer: Analyzer {
                 suggestedFix: "Replace UIWebView with WKWebView.",
                 estimatedFixMinutes: 60
             ))
+        }
         }
 
         checks += 1
@@ -110,8 +119,11 @@ struct ReviewAnalyzer: Analyzer {
         }
 
         checks += 1
-        let matchedSignUp = Self.signUpPatterns.filter { source.contains($0) }
-        let hasDeletion = Self.deletionPatterns.contains { lowercasedSource.contains($0.lowercased()) }
+        // Authentication must be proven by code that calls it, not by the word
+        // appearing in a comment, a label, or a dependency's source.
+        let matchedSignUp = Self.signUpPatterns.filter { code.contains($0) }
+        let lowercasedCode = code.lowercased()
+        let hasDeletion = Self.deletionPatterns.contains { lowercasedCode.contains($0.lowercased()) }
         if !matchedSignUp.isEmpty && !hasDeletion {
             findings.append(Finding(
                 category: category,
@@ -184,7 +196,73 @@ struct ReviewAnalyzer: Analyzer {
             ))
         }
 
+        // Incomplete localization: if the app has multiple locales, flag any that
+        // are significantly less complete than the base (English) locale.
+        checks += 1
+        findings.append(contentsOf: incompleteLocalizationFindings(from: context.evidenceBundle.localizationFiles))
+
         return AnalysisResult(category: category, findings: findings, checksPerformed: checks)
+    }
+
+    private func incompleteLocalizationFindings(from files: [EvidenceLocalizationFile]) -> [Finding] {
+        guard files.count >= 2 else { return [] }
+
+        // Group by filename, then compare key counts across locales.
+        var byFilename: [String: [(locale: String, file: EvidenceLocalizationFile)]] = [:]
+        for file in files {
+            guard file.relativePath.hasSuffix(".strings") else { continue }
+            let name = (file.relativePath as NSString).lastPathComponent
+            let locale = localeCode(from: file.relativePath)
+            byFilename[name, default: []].append((locale: locale, file: file))
+        }
+
+        var findings: [Finding] = []
+        for (filename, entries) in byFilename.sorted(by: { $0.key < $1.key }) {
+            guard entries.count >= 2 else { continue }
+            guard let base = entries.first(where: { $0.locale == "en" || $0.locale == "en_US" || $0.locale == "Base" }) else { continue }
+
+            let baseCount = stringsKeyCount(base.file.content)
+            guard baseCount >= 3 else { continue }
+
+            for entry in entries where entry.locale != base.locale {
+                let entryCount = stringsKeyCount(entry.file.content)
+                let coverage = Double(entryCount) / Double(baseCount)
+                guard coverage < 0.7 else { continue }
+
+                let missingCount = baseCount - entryCount
+                findings.append(Finding(
+                    category: category,
+                    severity: .warning,
+                    confidence: .fact,
+                    rejectionLikelihood: .possible,
+                    title: "Incomplete \(entry.locale) localization in \(filename)",
+                    detail: "\(entry.locale) has \(entryCount) of \(baseCount) translated strings (\(missingCount) missing, \(Int(coverage * 100))% complete).",
+                    whyItMatters: "An app submitted for a locale that still shows untranslated text is often rejected — it signals the localization isn't ready for users.",
+                    evidence: "\(entry.file.relativePath): \(entryCount) keys vs \(base.file.relativePath): \(baseCount) keys",
+                    guidelineReference: "2.1",
+                    suggestedFix: "Complete the \(entry.locale) strings in \(filename), or remove the \(entry.locale) localization from the project if it is not ready.",
+                    estimatedFixMinutes: 60,
+                    affectedPath: entry.file.relativePath
+                ))
+            }
+        }
+        return findings
+    }
+
+    /// Counts translated key-value pairs in a .strings file (non-empty, non-comment lines with "=").
+    private func stringsKeyCount(_ content: String) -> Int {
+        content.components(separatedBy: "\n").filter { line in
+            let t = line.trimmingCharacters(in: .whitespaces)
+            guard !t.isEmpty, !t.hasPrefix("//"), !t.hasPrefix("/*"), !t.hasPrefix("*") else { return false }
+            return t.hasPrefix("\"") && t.contains("=")
+        }.count
+    }
+
+    /// Extracts the locale code from a path segment like "es.lproj" or "en_US.lproj".
+    private func localeCode(from path: String) -> String {
+        path.components(separatedBy: "/")
+            .first { $0.hasSuffix(".lproj") }
+            .map { String($0.dropLast(".lproj".count)) } ?? "unknown"
     }
 
     /// Counts http:// occurrences, ignoring XML namespaces, DTD declarations,

@@ -13,6 +13,9 @@ struct AnalysisContext: Sendable {
     /// nil when the user hasn't configured App Store Connect; the
     /// MetadataAnalyzer skips in that case.
     let ascCredentials: ASCCredentials?
+    /// Structured evidence collected once per run; shared by all analyzers
+    /// and (in Phase B) the AI investigation layer.
+    let evidenceBundle: EvidenceBundle
 }
 
 /// The parts of an Info.plist that analyzers care about, extracted into plain
@@ -25,16 +28,45 @@ struct InfoPlistData: Sendable {
 }
 
 extension AnalysisContext {
-    /// Concatenates all readable source files into one searchable string.
-    /// Unreadable files are skipped rather than failing the run.
+    /// Concatenates all source files into one searchable string.
+    /// Uses the pre-read EvidenceBundle so files are not re-read from disk on
+    /// each call. Unreadable files were already excluded when the bundle was built.
     func combinedSource() -> String {
-        var combined = ""
-        for url in sourceFileURLs {
-            if let contents = try? String(contentsOf: url, encoding: .utf8) {
-                combined.append(contents)
-                combined.append("\n")
-            }
-        }
-        return combined
+        evidenceBundle.sourceFiles
+            .map(\.content)
+            .joined(separator: "\n")
+    }
+
+    /// Like combinedSource but excludes test/mock/spec files.
+    /// Use for entitlement and capability checks — test files may import frameworks
+    /// the production app never uses, causing false non-matches.
+    func productionSource() -> String {
+        evidenceBundle.sourceFiles
+            .filter { !$0.isTestFile }
+            .map(\.content)
+            .joined(separator: "\n")
+    }
+
+    /// The application's own source: no tests, no vendored dependencies.
+    /// Use when the literal text is itself the issue (placeholder copy,
+    /// hardcoded URLs) — string literals are preserved.
+    func applicationSource() -> String {
+        evidenceBundle.sourceFiles
+            .filter(\.isApplicationCode)
+            .map(\.content)
+            .joined(separator: "\n")
+    }
+
+    /// The application's own source with comments and string-literal contents
+    /// removed. Use whenever a keyword match is meant to prove the app *calls*
+    /// something, so a rule quoted in a comment or a pattern stored in a string
+    /// can't masquerade as real usage.
+    func applicationCode() -> String {
+        SourceEvidence.codeOnly(applicationSource())
+    }
+
+    /// Platforms the app targets, for gating platform-specific checks.
+    var platforms: TargetPlatforms {
+        TargetPlatforms(appTargets: targets.filter(\.isApplication))
     }
 }

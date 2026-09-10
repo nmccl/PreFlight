@@ -13,6 +13,7 @@ struct ResultsView: View {
     @State private var showPaywall = false
     @State private var paywallSource: PaywallSource = .summaryCard
     @State private var expandedCategories: Set<AnalysisCategory> = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if let report = appState.currentReport {
@@ -49,7 +50,7 @@ struct ResultsView: View {
             }
             ToolbarItem {
                 Button {
-                    if appState.purchases.isPurchased {
+                    if appState.hasFullAccess {
                         copyChecklist(for: report)
                     } else {
                         paywallSource = .copyChecklist
@@ -58,16 +59,16 @@ struct ResultsView: View {
                 } label: {
                     Label(
                         didCopyChecklist ? "Copied" : "Copy Checklist",
-                        systemImage: didCopyChecklist ? "checkmark" : (appState.purchases.isPurchased ? "list.clipboard" : "lock.fill")
+                        systemImage: didCopyChecklist ? "checkmark" : (appState.hasFullAccess ? "list.clipboard" : "lock.fill")
                     )
                 }
-                .help(appState.purchases.isPurchased
+                .help(appState.hasFullAccess
                       ? "Copy the report as a Markdown fix checklist"
-                      : "Unlock Full Analysis to copy the fix checklist")
+                      : "Unlock PreFlight to copy the fix checklist")
             }
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 1.0)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 1.0)) {
                 ringProgress = Double(report.overallScore) / 100
             }
             // Default: expand any category that has blockers or high-risk findings.
@@ -125,6 +126,9 @@ struct ResultsView: View {
                 }
             }
             .frame(width: 170, height: 170)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Release Readiness score")
+            .accessibilityValue("\(report.overallScore) out of 100")
 
             if !report.allFindings.isEmpty {
                 Label(
@@ -150,10 +154,8 @@ struct ResultsView: View {
     private func coverageDescription(for report: Report) -> String {
         var text = "Based on \(report.totalChecksPerformed) automated checks"
         let skipped = report.skippedResults.count
-        let locked = appState.purchases.isPurchased ? 0 : AnalysisCategory.allCases.filter(\.requiresPurchase).count
-        let unchecked = skipped + locked
-        if unchecked > 0 {
-            text += " · \(unchecked) area\(unchecked == 1 ? "" : "s") not checked"
+        if skipped > 0 {
+            text += " · \(skipped) area\(skipped == 1 ? "" : "s") not checked"
         }
         text += " · some review criteria need manual verification"
         return text
@@ -201,7 +203,7 @@ struct ResultsView: View {
             Label("Summary", systemImage: "sparkles")
                 .font(.headline)
 
-            if !appState.purchases.isPurchased {
+            if !appState.hasFullAccess {
                 HStack(spacing: 12) {
                     Image(systemName: "lock.fill")
                         .foregroundStyle(.tertiary)
@@ -254,15 +256,14 @@ struct ResultsView: View {
         VStack(spacing: 20) {
             ForEach(Pillar.allCases, id: \.self) { pillar in
                 let results = report.results.filter { $0.category.pillar == pillar }
-                let locked = lockedCategories(for: pillar, report: report)
-                if !results.isEmpty || !locked.isEmpty {
-                    pillarSection(pillar: pillar, results: results, locked: locked)
+                if !results.isEmpty {
+                    pillarSection(pillar: pillar, results: results, aiFindings: report.aiFindings)
                 }
             }
         }
     }
 
-    private func pillarSection(pillar: Pillar, results: [AnalysisResult], locked: [AnalysisCategory]) -> some View {
+    private func pillarSection(pillar: Pillar, results: [AnalysisResult], aiFindings: [Finding]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(pillar.displayName)
                 .font(.headline)
@@ -271,32 +272,30 @@ struct ResultsView: View {
 
             VStack(spacing: 8) {
                 ForEach(results, id: \.category) { result in
-                    categoryCard(for: result)
-                }
-                ForEach(locked, id: \.self) { category in
-                    lockedCategoryCard(for: category)
+                    categoryCard(for: result, aiFindings: aiFindings.filter { $0.category == result.category })
                 }
             }
         }
     }
 
-    private func categoryCard(for result: AnalysisResult) -> some View {
+    private func categoryCard(for result: AnalysisResult, aiFindings: [Finding]) -> some View {
         let isExpanded = Binding(
             get: { expandedCategories.contains(result.category) },
             set: { if $0 { expandedCategories.insert(result.category) } else { expandedCategories.remove(result.category) } }
         )
+        let allFindings = (result.findings + aiFindings).sorted { $0.severity < $1.severity }
 
         return DisclosureGroup(isExpanded: isExpanded) {
-            if result.wasSkipped {
+            if result.wasSkipped && allFindings.isEmpty {
                 EmptyView()
-            } else if result.findings.isEmpty {
+            } else if allFindings.isEmpty {
                 Label("No issues found in this category.", systemImage: "checkmark.circle")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
             } else {
                 VStack(spacing: 6) {
-                    ForEach(result.findings) { finding in
+                    ForEach(allFindings) { finding in
                         FindingRow(finding: finding)
                     }
                 }
@@ -314,6 +313,7 @@ struct ResultsView: View {
             Image(systemName: result.category.systemImage)
                 .foregroundStyle(.tint)
                 .frame(width: 22)
+                .accessibilityHidden(true)
 
             Text(result.category.displayName)
                 .font(.body.weight(.medium))
@@ -358,33 +358,6 @@ struct ResultsView: View {
             .padding(.vertical, 3)
             .background(color.opacity(0.15), in: .capsule)
             .foregroundStyle(color)
-    }
-
-    private func lockedCategoryCard(for category: AnalysisCategory) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: category.systemImage)
-                .foregroundStyle(.tertiary)
-                .frame(width: 22)
-            Text(category.displayName)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Image(systemName: "lock.fill")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-            Button("Unlock") { paywallSource = .lockedCategory; showPaywall = true }
-                .buttonStyle(.glass)
-                .controlSize(.mini)
-        }
-        .padding(14)
-        .background(.quaternary.opacity(0.25), in: .rect(cornerRadius: 12))
-    }
-
-    private func lockedCategories(for pillar: Pillar, report: Report) -> [AnalysisCategory] {
-        guard !appState.purchases.isPurchased else { return [] }
-        let alreadyInReport = Set(report.results.map { $0.category })
-        return AnalysisCategory.allCases.filter {
-            $0.pillar == pillar && $0.requiresPurchase && !alreadyInReport.contains($0)
-        }
     }
 
     // MARK: Manual checklist
@@ -514,6 +487,7 @@ private struct FindingRow: View {
             HStack(spacing: 10) {
                 Image(systemName: finding.severity.systemImage)
                     .foregroundStyle(finding.severity.color)
+                    .accessibilityHidden(true)
                 Text(finding.title)
                     .font(.body.weight(.medium))
                     .multilineTextAlignment(.leading)

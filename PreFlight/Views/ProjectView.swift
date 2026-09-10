@@ -3,6 +3,7 @@ import SwiftUI
 /// Detail for the open project, with the Analyze action front and center.
 struct ProjectView: View {
     @Environment(AppState.self) private var appState
+    @State private var showPaywall = false
 
     var body: some View {
         if let project = appState.currentProject {
@@ -33,18 +34,25 @@ struct ProjectView: View {
                 detailChips(for: project)
 
                 Button {
-                    Task {
-                        await appState.startAnalysis()
+                    if appState.hasFullAccess {
+                        Task { await appState.startAnalysis() }
+                    } else {
+                        showPaywall = true
                     }
                 } label: {
-                    Label("Analyze", systemImage: "sparkle.magnifyingglass")
-                        .font(.title3.bold())
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 4)
+                    Label(
+                        "Analyze",
+                        systemImage: appState.hasFullAccess ? "sparkle.magnifyingglass" : "lock.fill"
+                    )
+                    .font(.title3.bold())
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 4)
                 }
                 .buttonStyle(.glassProminent)
                 .controlSize(.extraLarge)
                 .padding(.top, 12)
+
+                trialStatusView
 
                 if let report = appState.currentReport {
                     Button {
@@ -81,6 +89,30 @@ struct ProjectView: View {
             .padding(40)
         }
         .navigationTitle(project.name)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(purchases: appState.purchases, source: .trialExpired)
+        }
+    }
+
+    @ViewBuilder
+    private var trialStatusView: some View {
+        if appState.purchases.isPurchased {
+            EmptyView()
+        } else if appState.trial.isTrialActive {
+            let days = appState.trial.daysRemaining
+            Label(
+                days == 0
+                    ? "Last day of your free trial · all features available"
+                    : "Free trial — \(days) day\(days == 1 ? "" : "s") remaining · all features available",
+                systemImage: "clock"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        } else {
+            Label("Free trial ended · purchase to continue", systemImage: "lock.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
     }
 
     @ViewBuilder

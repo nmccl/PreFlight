@@ -42,17 +42,20 @@ struct ProjectService: Sendable {
         )
     }
 
-    func makeContext(for project: Project, credentials: ASCCredentials?) throws -> AnalysisContext {
+    func makeContext(for project: Project, credentials: ASCCredentials?) async throws -> AnalysisContext {
         let parsed = try parser.parse(projectFileURL: project.projectFileURL)
 
         var sources: [URL] = []
         var resources: [URL] = []
+        var localizations: [URL] = []
         for url in projectFiles(in: project.directoryURL) {
             switch url.pathExtension.lowercased() {
             case "swift", "m", "mm":
                 sources.append(url)
             case "plist", "xcprivacy", "storekit", "entitlements":
                 resources.append(url)
+            case "strings", "xcstrings":
+                localizations.append(url)
             default:
                 break
             }
@@ -63,13 +66,83 @@ struct ProjectService: Sendable {
             infoPlists[target.name] = infoPlistData(for: target, in: project.directoryURL)
         }
 
+        let ascSnapshot: EvidenceASCSnapshot?
+        if let credentials, let bundleID = project.bundleIdentifier, !bundleID.isEmpty {
+            ascSnapshot = await fetchASCSnapshot(credentials: credentials, bundleID: bundleID)
+        } else {
+            ascSnapshot = nil
+        }
+
+        let evidenceBundle = EvidenceBundleBuilder().build(
+            projectFileURL: project.projectFileURL,
+            directoryURL: project.directoryURL,
+            sourceURLs: sources,
+            resourceURLs: resources,
+            localizationURLs: localizations,
+            targets: parsed.targets,
+            infoPlists: infoPlists,
+            ascSnapshot: ascSnapshot
+        )
+
         return AnalysisContext(
             project: project,
             targets: parsed.targets,
             infoPlists: infoPlists,
             sourceFileURLs: sources,
             resourceFileURLs: resources,
-            ascCredentials: credentials
+            ascCredentials: credentials,
+            evidenceBundle: evidenceBundle
+        )
+    }
+
+    /// Fetches a minimal App Store Connect snapshot for the evidence bundle.
+    /// All endpoint calls use try? so a partial failure degrades to nil fields
+    /// rather than aborting context construction.
+    private func fetchASCSnapshot(credentials: ASCCredentials, bundleID: String) async -> EvidenceASCSnapshot? {
+        let client = ASCClient(credentials: credentials)
+
+        guard let app = try? await client.app(forBundleID: bundleID) else { return nil }
+
+        var privacyPolicyURLs: [String: String?] = [:]
+        if let localizations = try? await client.appInfoLocalizations(forAppID: app.id) {
+            for loc in localizations {
+                privacyPolicyURLs[loc.attributes.locale ?? "unknown"] = loc.attributes.privacyPolicyUrl
+            }
+        }
+
+        var supportURLs: [String: String?] = [:]
+        var descriptions: [String: String?] = [:]
+        var reviewDetail: EvidenceReviewDetail? = nil
+
+        if let version = try? await client.latestAppStoreVersion(forAppID: app.id) {
+            if let versionLocs = try? await client.appStoreVersionLocalizations(forVersionID: version.id) {
+                for loc in versionLocs {
+                    let locale = loc.attributes.locale ?? "unknown"
+                    supportURLs[locale] = loc.attributes.supportUrl
+                    descriptions[locale] = loc.attributes.description
+                }
+            }
+            if let detail = try? await client.appStoreReviewDetail(forVersionID: version.id) {
+                reviewDetail = EvidenceReviewDetail(
+                    demoAccountRequired: detail.attributes.demoAccountRequired ?? false,
+                    demoAccountName: detail.attributes.demoAccountName,
+                    reviewNotes: detail.attributes.notes
+                )
+            }
+        }
+
+        let privacyCategories = (try? await client.appPrivacyDeclarations(forAppID: app.id))?
+            .compactMap(\.attributes.category) ?? []
+
+        return EvidenceASCSnapshot(
+            appID: app.id,
+            bundleID: bundleID,
+            privacyPolicyURLs: privacyPolicyURLs,
+            supportURLs: supportURLs,
+            descriptions: descriptions,
+            reviewDetail: reviewDetail,
+            declaredPrivacyCategories: privacyCategories,
+            subscriptionStates: [:]
         )
     }
 
