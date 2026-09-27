@@ -110,23 +110,39 @@ struct EvidenceBundleBuilder: Sendable {
 
     // MARK: - Entitlements
 
+    /// Entitlements for each app target, from both sources that can produce
+    /// them: an explicit `.entitlements` file and the `ENABLE_*` build settings
+    /// Xcode synthesizes entitlements from. Most modern projects have only the
+    /// second, so reading the file alone leaves the analyzers blind.
     private func buildEntitlements(targets: [TargetInfo], directoryURL: URL) -> [String: EvidenceEntitlements] {
         var result: [String: EvidenceEntitlements] = [:]
         for target in targets where target.isApplication {
-            guard let path = target.setting("CODE_SIGN_ENTITLEMENTS") else { continue }
-            let url = directoryURL.appending(path: path)
-            guard let data = try? Data(contentsOf: url),
-                  let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
-            else { continue }
-            let keys = plist.mapValues { value -> String in
-                switch value {
-                case let s as String: return s
-                case let b as Bool: return b ? "true" : "false"
-                case let a as [Any]: return a.map { String(describing: $0) }.joined(separator: ", ")
-                default: return String(describing: value)
+            // Start from the build settings, then let an explicit file win on
+            // any key it also defines.
+            var keys = GeneratedEntitlements.keys(for: target)
+            var sources = keys.isEmpty ? [] : ["Signing & Capabilities (build settings)"]
+
+            let path = target.setting("CODE_SIGN_ENTITLEMENTS") ?? ""
+            if !path.isEmpty,
+               let data = try? Data(contentsOf: directoryURL.appending(path: path)),
+               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] {
+                let fileKeys = plist.mapValues { value -> String in
+                    switch value {
+                    case let s as String: return s
+                    case let b as Bool: return b ? "true" : "false"
+                    case let a as [Any]: return a.map { String(describing: $0) }.joined(separator: ", ")
+                    default: return String(describing: value)
+                    }
                 }
+                keys.merge(fileKeys) { _, fromFile in fromFile }
+                sources.append(path)
             }
-            result[target.name] = EvidenceEntitlements(path: path, keys: keys)
+
+            guard !keys.isEmpty else { continue }
+            result[target.name] = EvidenceEntitlements(
+                path: sources.joined(separator: " + "),
+                keys: keys
+            )
         }
         return result
     }
@@ -147,7 +163,10 @@ struct EvidenceBundleBuilder: Sendable {
         let apiEntries = plist["NSPrivacyAccessedAPITypes"] as? [[String: Any]] ?? []
         let accessedAPITypes: [EvidenceAPITypeEntry] = apiEntries.compactMap { entry in
             guard let key = entry["NSPrivacyAccessedAPIType"] as? String else { return nil }
-            let reasons = entry["NSPrivacyAccessedAPITypeReasonCodes"] as? [String] ?? []
+            // The key is NSPrivacyAccessedAPITypeReasons. "...ReasonCodes" is not
+            // a real key, so reading it silently yielded an empty array for every
+            // entry in every project. See TN3183.
+            let reasons = entry["NSPrivacyAccessedAPITypeReasons"] as? [String] ?? []
             return EvidenceAPITypeEntry(categoryKey: key, reasonCodes: reasons)
         }
 

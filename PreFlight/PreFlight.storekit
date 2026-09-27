@@ -15,21 +15,6 @@
   ],
   "products" : [
     {
-      "displayPrice" : "0.0",
-      "familyShareable" : false,
-      "internalID" : "6810300908",
-      "localizations" : [
-        {
-          "description" : "Try the full PreFlight experience free for 7 days.",
-          "displayName" : "PreFlight - Free Trial",
-          "locale" : "en_US"
-        }
-      ],
-      "productID" : "com.noahmcclung.PreFlight.trial7day",
-      "referenceName" : "PreFlight - Free Trial",
-      "type" : "NonConsumable"
-    },
-    {
       "displayPrice" : "12.99",
       "familyShareable" : false,
       "internalID" : "6801700292",

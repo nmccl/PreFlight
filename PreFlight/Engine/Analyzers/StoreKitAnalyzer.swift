@@ -111,7 +111,66 @@ struct StoreKitAnalyzer: Analyzer {
             findings.append(contentsOf: configFindings(at: configURL))
         }
 
+        // MARK: Commerce account prerequisites
+        //
+        // Selling anything requires the Paid Applications Agreement to be
+        // active and tax forms to be complete. Neither is exposed by the App
+        // Store Connect API, so this can't be verified — but an unsigned
+        // agreement or a missing W-9 blocks the submission regardless of how
+        // correct the code is, and it's invisible until the rejection arrives.
+        // Reported as Review severity: something to confirm, not a defect.
+        checks += 1
+        findings.append(Finding(
+            category: category,
+            severity: .review,
+            confidence: .observation,
+            rejectionLikelihood: .possible,
+            title: "Confirm Paid Applications Agreement and tax forms are active",
+            detail: "This app sells through StoreKit. Selling requires an active Paid Applications Agreement plus completed tax and banking information in App Store Connect under Business.",
+            whyItMatters: "An unsigned Paid Applications Agreement or an incomplete tax form (W-9 for US entities, W-8BEN or W-8BEN-E otherwise) blocks a paid submission no matter how the app is built. Purchases also fail in review when the agreement isn't active.",
+            evidence: "StoreKit purchase code found in the project. Agreement, tax, and banking status are not exposed by the App Store Connect API, so PreFlight cannot verify them.",
+            suggestedFix: "In App Store Connect, open Business and confirm: the Paid Applications Agreement shows Active, bank details are added, and the correct tax form is complete for every relevant region.",
+            estimatedFixMinutes: 20
+        ))
+
+        // The App Store product page needs a functional Terms of Use link for
+        // subscription apps. MetadataAnalyzer verifies this against the live
+        // description when credentials exist; without them nobody checks it,
+        // which is precisely how a submission reaches Apple's automated
+        // pre-review check and bounces.
+        if hasAutoRenewableSubscriptions(in: configFiles),
+           context.evidenceBundle.ascSnapshot == nil {
+            checks += 1
+            findings.append(Finding(
+                category: category,
+                severity: .review,
+                confidence: .observation,
+                rejectionLikelihood: .likely,
+                title: "Confirm the App Store description links to Terms of Use",
+                detail: "This app sells auto-renewable subscriptions. The App Store product page must carry a functional Terms of Use (EULA) link.",
+                whyItMatters: "Apple runs an automated check before review: a subscription app whose product page has no working Terms of Use link is returned immediately, before a human sees it. The words \"Terms of Use\" without a URL do not satisfy it.",
+                evidence: "Auto-renewable subscriptions found in the StoreKit configuration; no App Store Connect credentials are configured, so the live description could not be checked.",
+                guidelineReference: "3.1.2",
+                suggestedFix: "Paste the full Terms of Use URL into the App Description (Apple's standard EULA is https://www.apple.com/legal/internet-services/itunes/dev/stdeula/), or set a custom EULA in App Store Connect. Add App Store Connect credentials in Settings to have PreFlight verify this automatically.",
+                estimatedFixMinutes: 10
+            ))
+        }
+
         return AnalysisResult(category: category, findings: findings, checksPerformed: checks)
+    }
+
+    /// True when any StoreKit configuration declares a subscription group,
+    /// which is how auto-renewable subscriptions are represented.
+    private func hasAutoRenewableSubscriptions(in configFiles: [URL]) -> Bool {
+        configFiles.contains { url in
+            guard let data = try? Data(contentsOf: url),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let groups = json["subscriptionGroups"] as? [[String: Any]]
+            else { return false }
+            return groups.contains { group in
+                !((group["subscriptions"] as? [[String: Any]]) ?? []).isEmpty
+            }
+        }
     }
 
     /// StoreKit configuration files are JSON; validate what we can offline.

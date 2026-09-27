@@ -18,6 +18,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 500, height: 460)
+        
     }
 }
 
@@ -66,6 +67,9 @@ private struct GeneralSettingsPane: View {
             Button("Reset Onboarding and Free Trial") {
                 appState.trial.resetForTesting()
                 appState.settings.hasCompletedOnboarding = false
+            }
+            Button("Reset Review Prompt") {
+                appState.reviewRequests.resetForTesting()
             }
             #endif
         }

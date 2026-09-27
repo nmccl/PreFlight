@@ -124,6 +124,7 @@ export const DEFAULT_PROJECT: ProjectState = {
     "android-7": tabletStarter("7"),
     "android-10": tabletStarter("10"),
     "feature-graphic": fgStarter(),
+    "mac": makeStarterSlides(),
   },
 };
 
@@ -137,6 +138,7 @@ export function newSlide(layout: Slide["layout"] = "device-bottom"): Slide {
   };
 }
 
-export function detectPlatform(device: Device): "ios" | "android" {
+export function detectPlatform(device: Device): "ios" | "android" | "mac" {
+  if (device === "mac") return "mac";
   return device === "iphone" || device === "ipad" ? "ios" : "android";
 }

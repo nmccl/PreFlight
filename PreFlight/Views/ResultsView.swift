@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 #if os(macOS)
 import AppKit
 #endif
@@ -14,6 +15,7 @@ struct ResultsView: View {
     @State private var paywallSource: PaywallSource = .summaryCard
     @State private var expandedCategories: Set<AnalysisCategory> = []
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         if let report = appState.currentReport {
@@ -83,9 +85,28 @@ struct ResultsView: View {
                 hasAISummary: report.aiSummary != nil
             )
         }
+        .task {
+            await maybeAskForReview()
+        }
         .sheet(isPresented: $showPaywall) {
             PaywallView(purchases: appState.purchases, source: paywallSource)
         }
+    }
+
+    /// Asks for a review after a completed analysis — the end of a sequence
+    /// the person successfully finished, which is where Apple recommends
+    /// asking. The delay keeps the sheet from landing on top of the report
+    /// the moment it appears, and it's skipped entirely while the paywall
+    /// could be showing.
+    private func maybeAskForReview() async {
+        guard appState.reviewRequests.shouldRequestReview(hasFullAccess: appState.hasFullAccess) else {
+            return
+        }
+        try? await Task.sleep(for: .seconds(3))
+        // Re-check: the sheet may have been presented during the delay.
+        guard !showPaywall else { return }
+        appState.reviewRequests.markRequested()
+        requestReview()
     }
 
     private func copyChecklist(for report: Report) {

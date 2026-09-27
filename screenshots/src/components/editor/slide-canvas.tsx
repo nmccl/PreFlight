@@ -16,8 +16,11 @@ import type {
 import {
   CANVAS,
   IPAD_RATIO,
+  MAC_RATIO,
   MK_RATIO,
   ipadW,
+  macW,
+  macWSmall,
   phoneW,
   phoneWSmall,
   tabletLW,
@@ -31,6 +34,7 @@ import {
   AndroidTabletL,
   AndroidTabletP,
   IPad,
+  MacWindow,
   Phone,
 } from "./device-frames";
 
@@ -57,6 +61,7 @@ function getFrameAspect(device: Device, orientation: Orientation) {
     case "ipad":        return IPAD_RATIO;
     case "android-7":
     case "android-10":  return orientation === "landscape" ? 8 / 5 : 5 / 8;
+    case "mac":         return MAC_RATIO;
     default:            return 1;
   }
 }
@@ -79,6 +84,8 @@ export function getFrameForDevice(device: Device, orientation: Orientation): {
         return { Comp: AndroidTabletL, widthFn: tabletLW, smallWidthFn: (cW, cH) => tabletLW(cW, cH, 0.5) };
       }
       return { Comp: AndroidTabletP, widthFn: tabletPW, smallWidthFn: (cW, cH) => tabletPW(cW, cH, 0.62) };
+    case "mac":
+      return { Comp: MacWindow, widthFn: macW, smallWidthFn: macWSmall };
     default:
       return { Comp: Phone, widthFn: phoneW, smallWidthFn: phoneWSmall };
   }

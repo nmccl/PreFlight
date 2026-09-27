@@ -176,27 +176,54 @@ struct MetadataAnalyzer: Analyzer {
         }
 
         // Terms of Use for subscription apps: either a custom EULA or a
-        // Terms link in the description is required.
+        // functional Terms link in the description is required.
+        //
+        // Apple's automated pre-review check demands a *functional link*, not
+        // the words "terms of use". A description reading "see our terms of
+        // use" with no URL is rejected, so a real http(s) URL must be present
+        // in a locale whose description also references the terms.
         if hasSubscriptions {
-            let customEULA = try? await client.endUserLicenseAgreement(forAppID: appID)
-            let descriptionMentionsTerms = localizations.contains { localization in
+            // endUserLicenseAgreement already returns an optional, so `try?`
+            // produces a double optional: a successful "no EULA set" response
+            // becomes .some(nil), which is NOT == nil. Unwrap both levels or
+            // this only ever fires when the network call throws.
+            let eulaResult = try? await client.endUserLicenseAgreement(forAppID: appID)
+            let customEULA = eulaResult ?? nil
+            let hasCustomEULA = !(customEULA?.attributes.agreementText ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+            let termsLocales = localizations.filter { localization in
                 let description = (localization.attributes.description ?? "").lowercased()
                 return description.contains("terms of use")
                     || description.contains("terms of service")
                     || description.contains("eula")
             }
-            if customEULA == nil && !descriptionMentionsTerms {
+            let localeWithFunctionalLink = termsLocales.first { localization in
+                containsURL(localization.attributes.description ?? "")
+            }
+
+            if !hasCustomEULA && localeWithFunctionalLink == nil {
+                // Distinguish "no mention at all" from "mentioned but not linked",
+                // because the fix differs and the second case is the one that
+                // silently passes a keyword check and then gets rejected.
+                let mentionedWithoutLink = !termsLocales.isEmpty
                 findings.append(Finding(
                     category: category,
                     severity: .warning,
                     confidence: .fact,
                     rejectionLikelihood: .likely,
-                    title: "No Terms of Use (EULA) for a subscription app",
-                    detail: "The app sells auto-renewable subscriptions, but there is no custom EULA and no Terms of Use link in the App Store description.",
-                    whyItMatters: "Subscription apps must give users a Terms of Use link — either Apple's standard EULA referenced in the description or a custom EULA in App Store Connect. Reviewers turn back subscription submissions without it.",
-                    evidence: "endUserLicenseAgreement is not set; no \"terms of use\", \"terms of service\", or \"EULA\" text found in any locale's description.",
+                    title: mentionedWithoutLink
+                        ? "Terms of Use is mentioned but not linked"
+                        : "No Terms of Use (EULA) for a subscription app",
+                    detail: mentionedWithoutLink
+                        ? "The App Store description references Terms of Use but contains no URL, and no custom EULA is set in App Store Connect."
+                        : "The app sells auto-renewable subscriptions, but there is no custom EULA and no Terms of Use link in the App Store description.",
+                    whyItMatters: "Apple runs an automated check before review: a subscription app must have a functional Terms of Use link on its product page. Submissions without one are returned immediately, before a human reviewer sees the app.",
+                    evidence: mentionedWithoutLink
+                        ? "Custom EULA is not set; \(termsLocales.count) locale description(s) mention Terms of Use but contain no http(s) URL."
+                        : "Custom EULA is not set; no \"terms of use\", \"terms of service\", or \"EULA\" text found in any locale's description.",
                     guidelineReference: "3.1.2",
-                    suggestedFix: "Add a Terms of Use (EULA) link to the App Description, or set a custom EULA in App Store Connect.",
+                    suggestedFix: "Paste the full Terms of Use URL into the App Description (Apple's standard EULA is https://www.apple.com/legal/internet-services/itunes/dev/stdeula/), or set a custom EULA in App Store Connect under App Information.",
                     estimatedFixMinutes: 10
                 ))
             }
@@ -424,5 +451,18 @@ struct MetadataAnalyzer: Analyzer {
         }
 
         return findings
+    }
+
+    /// Whether the text contains something a reviewer could actually click.
+    /// Apple's pre-review check requires a functional link, so the phrase
+    /// "Terms of Use" on its own does not satisfy it.
+    private func containsURL(_ text: String) -> Bool {
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else {
+            // Fall back to a literal scheme match rather than silently passing.
+            let lowered = text.lowercased()
+            return lowered.contains("https://") || lowered.contains("http://")
+        }
+        let range = NSRange(text.startIndex..., in: text)
+        return detector.firstMatch(in: text, range: range) != nil
     }
 }

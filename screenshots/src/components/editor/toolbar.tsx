@@ -51,10 +51,11 @@ export function Toolbar(props: Props) {
   const hasLandscape = supportsLandscape(props.device);
   const [resetOpen, setResetOpen] = React.useState(false);
 
-  // Track last device per platform so iOS/Android tabs preserve user's choice.
-  const lastByPlatform = React.useRef<{ ios: Device; android: Device }>({
+  // Track last device per platform so tab switches preserve user's choice.
+  const lastByPlatform = React.useRef<{ ios: Device; android: Device; mac: Device }>({
     ios: platform === "ios" ? props.device : "iphone",
     android: platform === "android" ? props.device : "android",
+    mac: platform === "mac" ? props.device : "mac",
   });
   React.useEffect(() => {
     lastByPlatform.current[platform] = props.device;
@@ -102,11 +103,17 @@ export function Toolbar(props: Props) {
         value={platform}
         onValueChange={(p) => {
           if (props.busy) return;
-          const next = p === "ios" ? lastByPlatform.current.ios : lastByPlatform.current.android;
+          const next =
+            p === "ios" ? lastByPlatform.current.ios
+            : p === "mac" ? lastByPlatform.current.mac
+            : lastByPlatform.current.android;
           props.setDevice(next);
         }}
       >
         <TabsList className="h-8 p-0.5">
+          <TabsTrigger value="mac" className="h-7 px-3 text-xs" disabled={props.busy}>
+            Mac
+          </TabsTrigger>
           <TabsTrigger value="ios" className="h-7 px-3 text-xs" disabled={props.busy}>
             iOS
           </TabsTrigger>
@@ -125,7 +132,9 @@ export function Toolbar(props: Props) {
           <SelectValue placeholder="Device">{deviceLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          {platform === "ios" ? (
+          {platform === "mac" ? (
+            <SelectItem value="mac">{DEVICE_LABEL.mac}</SelectItem>
+          ) : platform === "ios" ? (
             <>
               <SelectItem value="iphone">{DEVICE_LABEL.iphone}</SelectItem>
               <SelectItem value="ipad">{DEVICE_LABEL.ipad}</SelectItem>

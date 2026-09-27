@@ -28,7 +28,13 @@ enum AIGuidelineKnowledge {
         • 3.1.1 IAP: digital goods and services must use Apple In-App Purchase. \
         Confirm with readStoreKitConfig + searchSource.
         • 3.1.2 Subscriptions: auto-renewable subscriptions require price and term \
-        disclosure on the purchase screen.
+        disclosure on the purchase screen, AND a functional Terms of Use (EULA) \
+        link on the App Store product page — either a URL in the description or a \
+        custom EULA. The words "Terms of Use" without a URL fail Apple's automated \
+        pre-review check.
+        • Commerce prerequisites: selling requires an active Paid Applications \
+        Agreement and completed tax forms. Neither is visible to static analysis, \
+        so treat these as items to confirm, never as confirmed defects.
         • 3.1.3 Steering: links to external payment. searchSource evidence required \
         before reporting.
         • Paywall completeness: purchase screens need Privacy Policy and Terms links.

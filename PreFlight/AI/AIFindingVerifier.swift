@@ -185,6 +185,13 @@ struct AIFindingVerifier: Sendable {
             Judge only against the facts given. Do not speculate about code you \
             cannot see. When a candidate depends on something the facts don't \
             cover, answer UNCERTAIN rather than guessing.
+
+            One exception: commerce prerequisites — the Paid Applications \
+            Agreement, tax and banking forms, and the App Store Terms of Use \
+            (EULA) link. These live in App Store Connect, not in code, so no \
+            fact can confirm them. If "Uses In-App Purchase" is YES, answer \
+            CONFIRM: the requirement applies and the developer must check it. \
+            Only REJECT them when the app does not use In-App Purchase.
             """)
         session.prewarm()
 

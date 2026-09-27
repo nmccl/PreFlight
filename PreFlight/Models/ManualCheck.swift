@@ -38,8 +38,12 @@ extension ManualCheck {
         if usesStoreKit {
             checks.append(contentsOf: [
                 ManualCheck(
-                    title: "Paid Apps Agreement is active",
-                    detail: "Check Business in App Store Connect. Purchases fail during review if the agreement has lapsed — agreement status isn't visible to PreFlight."
+                    title: "Paid Applications Agreement is signed and active",
+                    detail: "Open Business in App Store Connect. The agreement must read Active, not Pending — an unsigned or lapsed agreement blocks a paid submission outright and isn't visible to PreFlight through the API."
+                ),
+                ManualCheck(
+                    title: "Tax forms and banking are complete",
+                    detail: "Under Business, confirm the correct tax form is filed for every region you sell in (W-9 for US entities, W-8BEN or W-8BEN-E otherwise) and that bank details are added. A missing tax form gets a paid app rejected even when everything else is correct."
                 ),
                 ManualCheck(
                     title: "Purchases work in the StoreKit sandbox",

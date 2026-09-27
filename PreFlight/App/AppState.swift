@@ -25,6 +25,7 @@ final class AppState {
     let recents: RecentProjectsService
     let purchases: PurchaseService
     let trial: TrialManager
+    let reviewRequests: ReviewRequestService
     private let projectService = ProjectService()
     private let reportGenerator = AIReportGenerator()
     private let reportStore = ReportStore()
@@ -56,13 +57,15 @@ final class AppState {
         router: Router? = nil,
         recents: RecentProjectsService? = nil,
         purchases: PurchaseService? = nil,
-        trial: TrialManager? = nil
+        trial: TrialManager? = nil,
+        reviewRequests: ReviewRequestService? = nil
     ) {
         self.settings = settings ?? SettingsService()
         self.router = router ?? Router()
         self.recents = recents ?? RecentProjectsService()
         self.purchases = purchases ?? PurchaseService()
         self.trial = trial ?? TrialManager()
+        self.reviewRequests = reviewRequests ?? ReviewRequestService()
     }
 
     func openProject(at url: URL, parentBookmarkData: Data? = nil, source: ProjectOpenSource = .filePicker) {
@@ -219,6 +222,9 @@ final class AppState {
 
             reportHistory = reportStore.loadHistory(forProjectPath: projectPath)
             recents.noteAnalyzed(projectPath: projectPath, score: report.overallScore)
+            // Counts toward the review prompt. Only successful runs count —
+            // the catch below returns before reaching this.
+            reviewRequests.noteAnalysisCompleted()
 
             // Brief pause so the completion state on the loading screen is readable.
             try? await Task.sleep(for: .seconds(1.0))

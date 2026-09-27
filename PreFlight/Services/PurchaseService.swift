@@ -7,20 +7,33 @@ import Observation
 @Observable
 final class PurchaseService {
     static let productID = "com.noahmcclung.PreFlight.unlock"
-    private static let devOverrideKey = "preflight_dev_proUnlock"
 
     private var _isPurchased = false
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private var product: Product?
 
-    /// Dev-only: bypasses StoreKit so Pro features can be tested without a real transaction.
-    /// Persisted across launches via UserDefaults.
+    #if DEBUG
+    private static let devOverrideKey = "preflight_dev_proUnlock"
+
+    /// Dev-only: bypasses StoreKit so Pro features can be tested without a real
+    /// transaction. Persisted across launches via UserDefaults.
+    ///
+    /// Compiled out of release builds on purpose. This reads a plain
+    /// UserDefaults key, so shipping it would let anyone unlock the paid
+    /// features with a single `defaults write`.
     var devOverrideEnabled: Bool = UserDefaults.standard.bool(forKey: devOverrideKey) {
         didSet { UserDefaults.standard.set(devOverrideEnabled, forKey: Self.devOverrideKey) }
     }
+    #endif
 
-    var isPurchased: Bool { devOverrideEnabled || _isPurchased }
+    /// Release builds answer this only from StoreKit's verified entitlements.
+    var isPurchased: Bool {
+        #if DEBUG
+        if devOverrideEnabled { return true }
+        #endif
+        return _isPurchased
+    }
 
     /// The localized price string for display in the paywall.
     /// Falls back to "$12.99" before the product record loads (simulator / pre-submission).
